@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "node --test",
+    "check:authz": "node scripts/authz-check.js"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
@@ -19,6 +21,7 @@
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "socket.io-client": "^4.7.5"
   }
 }

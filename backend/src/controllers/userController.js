@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const { PUBLIC_USER_FIELDS } = require("../utils/constants");
 
 /**
  * GET /api/users
@@ -8,9 +9,10 @@ const User = require("../models/User");
  */
 const getAllUsers = async (req, res) => {
   try {
-    // Exclude the current user from results; never return password
+    // Exclude the current user from results. Only public profile fields are
+    // returned: other users' email addresses must not be exposed.
     const users = await User.find({ _id: { $ne: req.user._id } })
-      .select("-password")
+      .select(PUBLIC_USER_FIELDS)
       .sort({ name: 1 });
 
     res.status(200).json(users);

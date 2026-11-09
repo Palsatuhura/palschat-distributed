@@ -1,5 +1,6 @@
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
+const { isValidObjectId } = require("../utils/validators");
 
 /**
  * GET /api/conversations/:id/messages
@@ -15,6 +16,11 @@ const getMessages = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const skip = (page - 1) * limit;
+
+    // A malformed id would otherwise throw a CastError and surface as a 500.
+    if (!isValidObjectId(conversationId)) {
+      return res.status(400).json({ message: "Invalid conversation id" });
+    }
 
     // Verify conversation exists and user is a participant
     const conversation = await Conversation.findById(conversationId);
