@@ -40,3 +40,7 @@ Thumbs.db
 
 # Old Git history backup
 .git-old/
+
+.env
+.env.*
+!.env.example
