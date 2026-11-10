@@ -1,4 +1,14 @@
-const { MAX_GROUP_OTHER_MEMBERS } = require("./constants");
+const {
+  MAX_GROUP_OTHER_MEMBERS,
+  MAX_EMAIL_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_BYTES,
+  MIN_NAME_LENGTH,
+  MAX_NAME_LENGTH,
+} = require("./constants");
+
+// Deliberately simple: the real proof of ownership is sending mail to it.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Input validation helpers.
@@ -60,7 +70,67 @@ const normalizeParticipantIds = (input, selfId) => {
   return { ids: [...unique] };
 };
 
+/**
+ * Normalize an email address: must be a string, trimmed, lower-cased, no
+ * longer than the RFC limit and shaped like name@host.tld.
+ *
+ * Returns the normalized address, or null if it is not acceptable. Because it
+ * returns a plain string, the value is safe to use in a database query
+ * (an object such as { $ne: null } can never get through).
+ */
+const normalizeEmail = (value) => {
+  if (typeof value !== "string") return null;
+
+  const email = value.trim().toLowerCase();
+
+  if (email.length === 0 || email.length > MAX_EMAIL_LENGTH) return null;
+  if (!EMAIL_PATTERN.test(email)) return null;
+
+  return email;
+};
+
+/**
+ * Validate a NEW password (registration).
+ *
+ * bcrypt only uses the first 72 BYTES of its input, so a longer password
+ * would be silently truncated; reject it instead. The upper bound also stops
+ * oversized inputs being fed to the hashing function.
+ *
+ * Returns an error message, or null if the password is acceptable.
+ */
+const validateNewPassword = (value) => {
+  if (typeof value !== "string") return "Password must be a string";
+  if (value.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+  }
+  if (Buffer.byteLength(value, "utf8") > MAX_PASSWORD_BYTES) {
+    return `Password is too long (maximum ${MAX_PASSWORD_BYTES} bytes)`;
+  }
+  return null;
+};
+
+/**
+ * Validate a display name. Returns { name } (trimmed) or { error }.
+ */
+const validateName = (value) => {
+  if (typeof value !== "string") return { error: "Name must be a string" };
+
+  const name = value.trim();
+
+  if (name.length < MIN_NAME_LENGTH) {
+    return { error: `Name must be at least ${MIN_NAME_LENGTH} characters` };
+  }
+  if (name.length > MAX_NAME_LENGTH) {
+    return { error: `Name cannot exceed ${MAX_NAME_LENGTH} characters` };
+  }
+
+  return { name };
+};
+
 module.exports = {
   isValidObjectId,
   normalizeParticipantIds,
+  normalizeEmail,
+  validateNewPassword,
+  validateName,
 };

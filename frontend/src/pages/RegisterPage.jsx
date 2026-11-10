@@ -37,8 +37,8 @@ const RegisterPage = () => {
     if (formData.name.length < 2) {
       return setError("Name must be at least 2 characters");
     }
-    if (formData.password.length < 6) {
-      return setError("Password must be at least 6 characters");
+    if (formData.password.length < 8) {
+      return setError("Password must be at least 8 characters");
     }
     if (formData.password !== formData.confirmPassword) {
       return setError("Passwords do not match");
@@ -133,7 +133,7 @@ const RegisterPage = () => {
                 autoComplete="new-password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="Min. 6 characters"
+                placeholder="Min. 8 characters"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 
                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />

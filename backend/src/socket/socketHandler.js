@@ -1,9 +1,15 @@
-const jwt = require("jsonwebtoken");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const User = require("../models/User");
+const { verifyToken } = require("../utils/jwt");
+const { createEventLimiter } = require("../utils/eventLimiter");
 const { isValidObjectId } = require("../utils/validators");
-const { MAX_MESSAGE_LENGTH } = require("../utils/constants");
+const {
+  MAX_MESSAGE_LENGTH,
+  SOCKET_EVENT_WINDOW_MS,
+  SOCKET_EVENTS_PER_WINDOW,
+  SOCKET_MESSAGES_PER_WINDOW,
+} = require("../utils/constants");
 
 /*
  * Distributed presence architecture
@@ -57,6 +63,18 @@ const socketHandler = (io, presenceClient) => {
   const rejectEvent = (socket, message) => {
     socket.emit("error", { message });
   };
+
+  // Socket.IO delivers `err.data` to the client's connect_error handler, so
+  // the browser can tell "expired" from "invalid" without parsing messages.
+  const authError = (message, code) => {
+    const error = new Error(message);
+    error.data = { code };
+    return error;
+  };
+
+  // setTimeout silently misbehaves above 2^31-1 ms (about 24.8 days) and
+  // fires immediately, so longer waits are not scheduled at all.
+  const MAX_TIMER_MS = 2 ** 31 - 1;
 
   /*
    * Remove a socket from Redis presence.
@@ -125,16 +143,26 @@ const socketHandler = (io, presenceClient) => {
       const token =
         socket.handshake.auth?.token;
 
-      if (!token) {
+      if (!token || typeof token !== "string") {
         return next(
-          new Error("Authentication required")
+          authError(
+            "Authentication required",
+            "NO_TOKEN"
+          )
         );
       }
 
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET
-      );
+      // Algorithm is pinned in utils/jwt.js.
+      const decoded = verifyToken(token);
+
+      if (!isValidObjectId(decoded.id)) {
+        return next(
+          authError(
+            "Invalid or expired authentication token",
+            "TOKEN_INVALID"
+          )
+        );
+      }
 
       const user =
         await User.findById(decoded.id)
@@ -142,7 +170,10 @@ const socketHandler = (io, presenceClient) => {
 
       if (!user) {
         return next(
-          new Error("User no longer exists")
+          authError(
+            "User no longer exists",
+            "TOKEN_INVALID"
+          )
         );
       }
 
@@ -150,6 +181,13 @@ const socketHandler = (io, presenceClient) => {
         user._id.toString();
 
       socket.user = user;
+
+      // When this login token expires (ms since epoch). A socket that stays
+      // connected must not outlive the token that authenticated it.
+      socket.tokenExpiresAt =
+        typeof decoded.exp === "number"
+          ? decoded.exp * 1000
+          : null;
 
       next();
     } catch (error) {
@@ -159,8 +197,11 @@ const socketHandler = (io, presenceClient) => {
       );
 
       next(
-        new Error(
-          "Invalid or expired authentication token"
+        authError(
+          "Invalid or expired authentication token",
+          error.name === "TokenExpiredError"
+            ? "TOKEN_EXPIRED"
+            : "TOKEN_INVALID"
         )
       );
     }
@@ -179,6 +220,92 @@ const socketHandler = (io, presenceClient) => {
     const userRoom = getUserRoom(userId);
     const presenceKey =
       getPresenceKey(userId);
+
+    /*
+     * End the session when the login token expires. Without this, a socket
+     * connected with a valid token would keep working for as long as the
+     * connection stays open, long after the token itself had expired.
+     */
+    let expiryTimer = null;
+
+    if (socket.tokenExpiresAt) {
+      const msUntilExpiry =
+        socket.tokenExpiresAt - Date.now();
+
+      if (msUntilExpiry <= MAX_TIMER_MS) {
+        expiryTimer = setTimeout(
+          () => {
+            console.log(
+              `⏰ Token expired, closing socket ${socket.id} (user ${socket.userId})`
+            );
+
+            socket.emit(
+              "session_expired",
+              { code: "TOKEN_EXPIRED" }
+            );
+
+            socket.disconnect(true);
+          },
+          Math.max(msUntilExpiry, 0)
+        );
+      }
+    }
+
+    /*
+     * Flood protection. socket.use() runs before every event handler, so a
+     * client that sends events in a tight loop is throttled before any
+     * database work happens. Rejected events are dropped, not queued.
+     */
+    const eventLimiter = createEventLimiter({
+      max: SOCKET_EVENTS_PER_WINDOW,
+      windowMs: SOCKET_EVENT_WINDOW_MS,
+    });
+
+    const messageLimiter = createEventLimiter({
+      max: SOCKET_MESSAGES_PER_WINDOW,
+      windowMs: SOCKET_EVENT_WINDOW_MS,
+    });
+
+    socket.use((packet, next) => {
+      const [event, ...args] = packet;
+
+      const overall = eventLimiter.hit();
+      const messages =
+        event === "send_message"
+          ? messageLimiter.hit()
+          : { allowed: true, firstRejection: false };
+
+      if (overall.allowed && messages.allowed) {
+        return next();
+      }
+
+      // Tell the client, but only once per window: answering every dropped
+      // event would let a flood trigger an equal flood of replies.
+      if (overall.firstRejection || messages.firstRejection) {
+        rejectEvent(
+          socket,
+          "You are sending too many requests. Please slow down."
+        );
+      }
+
+      // A client waiting on an acknowledgement should not hang.
+      const ack = args[args.length - 1];
+      if (typeof ack === "function") {
+        ack({
+          ok: false,
+          message: "You are sending too many requests. Please slow down.",
+        });
+      }
+
+      if (overall.abusive) {
+        console.warn(
+          `🚫 Disconnecting socket ${socket.id} (user ${socket.userId}) for flooding`
+        );
+        socket.disconnect(true);
+      }
+
+      // Not calling next(): the event is dropped.
+    });
 
     /*
      * IMPORTANT: register every socket.on(...) handler synchronously,
@@ -495,6 +622,8 @@ const socketHandler = (io, presenceClient) => {
     socket.on(
       "disconnect",
       async () => {
+        clearTimeout(expiryTimer);
+
         console.log(
           `🔴 Socket disconnected: ${socket.id}`
         );

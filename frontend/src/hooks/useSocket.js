@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import socket from "../lib/socket";
 import useAuthStore from "../store/authStore";
 import useChatStore from "../store/chatStore";
+import { endSession } from "../lib/session";
 
 const useSocket = () => {
   const user = useAuthStore((state) => state.user);
@@ -56,6 +57,22 @@ const useSocket = () => {
         "❌ Socket authentication/connection error:",
         error.message
       );
+
+      // The server says WHY the handshake failed. An expired or invalid
+      // token will never start working, so retrying forever would be
+      // pointless: end the session instead.
+      const code = error?.data?.code;
+
+      if (code === "TOKEN_EXPIRED") {
+        endSession("expired");
+      } else if (code === "TOKEN_INVALID") {
+        endSession("invalid");
+      }
+    };
+
+    // Sent by the server just before it closes a socket whose token expired.
+    const handleSessionExpired = () => {
+      endSession("expired");
     };
 
     const handleDisconnect = (reason) => {
@@ -142,6 +159,11 @@ const useSocket = () => {
     );
 
     socket.on(
+      "session_expired",
+      handleSessionExpired
+    );
+
+    socket.on(
       "disconnect",
       handleDisconnect
     );
@@ -195,6 +217,11 @@ const useSocket = () => {
       socket.off(
         "connect_error",
         handleConnectError
+      );
+
+      socket.off(
+        "session_expired",
+        handleSessionExpired
       );
 
       socket.off(

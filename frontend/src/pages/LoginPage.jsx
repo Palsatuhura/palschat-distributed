@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/axios";
 import useAuthStore from "../store/authStore";
+import { getSessionNotice } from "../lib/sessionNotice";
 
 /**
  * LoginPage
@@ -12,6 +13,10 @@ import useAuthStore from "../store/authStore";
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuthStore();
+
+  // Set by endSession() when a session ended on its own (/login?reason=expired)
+  const [searchParams] = useSearchParams();
+  const sessionNotice = getSessionNotice(searchParams.get("reason"));
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -59,6 +64,15 @@ const LoginPage = () => {
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
+          {sessionNotice && (
+            <div
+              role="status"
+              className="mb-5 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm"
+            >
+              {sessionNotice}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Error message */}
             {error && (
