@@ -55,6 +55,22 @@ const socketHandler = (io, presenceClient) => {
     return Boolean(found);
   };
 
+  // Like canAccessConversation, but returns the participant ids (strings) so
+  // a message can be delivered to each of them, or null if the user may not
+  // access the conversation.
+  const getParticipantIds = async (conversationId, userId) => {
+    if (!isValidObjectId(conversationId)) return null;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    })
+      .select("participants")
+      .lean();
+
+    return conversation ? conversation.participants.map(String) : null;
+  };
+
   // Cheap check for high-frequency events (typing): a socket can only be in
   // a conversation room if canAccessConversation passed in join_conversation.
   const hasJoinedConversation = (socket, conversationId) =>
@@ -397,7 +413,19 @@ const socketHandler = (io, presenceClient) => {
 
     socket.on(
       "send_message",
-      async (data) => {
+      async (data, ack) => {
+        // `ack` is optional and comes from the client, so only call it if it
+        // really is a function. It tells the sender what happened to the
+        // message: { ok: true, message } or { ok: false, message: "why" }.
+        const respond = (payload) => {
+          if (typeof ack === "function") ack(payload);
+        };
+
+        const fail = (message) => {
+          rejectEvent(socket, message);
+          respond({ ok: false, message });
+        };
+
         try {
           // The payload is untrusted: it may be missing, or any type.
           const conversationId =
@@ -416,10 +444,7 @@ const socketHandler = (io, presenceClient) => {
             typeof text !== "string" ||
             !text.trim()
           ) {
-            rejectEvent(
-              socket,
-              "Invalid message data"
-            );
+            fail("Invalid message data");
 
             return;
           }
@@ -428,8 +453,7 @@ const socketHandler = (io, presenceClient) => {
             text.trim().length >
             MAX_MESSAGE_LENGTH
           ) {
-            rejectEvent(
-              socket,
+            fail(
               `Message cannot exceed ${MAX_MESSAGE_LENGTH} characters`
             );
 
@@ -437,19 +461,18 @@ const socketHandler = (io, presenceClient) => {
           }
 
           // Authorization: only participants may post into a conversation.
-          const allowed =
-            await canAccessConversation(
+          const participantIds =
+            await getParticipantIds(
               conversationId,
               senderId
             );
 
-          if (!allowed) {
+          if (!participantIds) {
             console.warn(
               `🚫 User ${senderId} tried to post to conversation ${conversationId} without being a participant`
             );
 
-            rejectEvent(
-              socket,
+            fail(
               "You are not a participant of this conversation"
             );
 
@@ -480,10 +503,23 @@ const socketHandler = (io, presenceClient) => {
             }
           );
 
-          io.to(conversationId).emit(
+          // Deliver to the open conversation room AND to every participant's
+          // private user room, so people who have not opened this chat (or
+          // are on another screen) still get it for unread badges and the
+          // sidebar preview. Socket.IO sends a socket that is in several of
+          // these rooms the event only once.
+          let target = io.to(conversationId);
+
+          for (const participantId of participantIds) {
+            target = target.to(getUserRoom(participantId));
+          }
+
+          target.emit(
             "receive_message",
             message
           );
+
+          respond({ ok: true, message });
 
           console.log(
             `💬 Message sent in room ${conversationId} by ${senderId}`
@@ -494,10 +530,7 @@ const socketHandler = (io, presenceClient) => {
             error
           );
 
-          rejectEvent(
-            socket,
-            "Failed to send message"
-          );
+          fail("Failed to send message");
         }
       }
     );

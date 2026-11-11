@@ -34,4 +34,8 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// History is always read as "newest messages of one conversation", so the
+// index matches that query exactly (filter, then sort).
+messageSchema.index({ conversation: 1, createdAt: -1, _id: -1 });
+
 module.exports = mongoose.model("Message", messageSchema);

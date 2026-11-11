@@ -26,6 +26,11 @@ const conversationSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    // Only for 1-on-1 chats: "<lowerId>:<higherId>". See dmKeyFor().
+    dmKey: {
+      type: String,
+      default: undefined,
+    },
     // Reference to the last message for sidebar preview
     lastMessage: {
       type: mongoose.Schema.Types.ObjectId,
@@ -34,6 +39,16 @@ const conversationSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+// "My conversations, newest first" (the sidebar query).
+conversationSchema.index({ participants: 1, updatedAt: -1 });
+
+// At most one DM per pair of users. Partial, so groups and DMs created before
+// this field existed (no dmKey) are not affected.
+conversationSchema.index(
+  { dmKey: 1 },
+  { unique: true, partialFilterExpression: { dmKey: { $type: "string" } } }
 );
 
 module.exports = mongoose.model("Conversation", conversationSchema);

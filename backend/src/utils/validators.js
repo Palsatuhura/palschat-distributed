@@ -127,7 +127,16 @@ const validateName = (value) => {
   return { name };
 };
 
+/**
+ * Stable key for a one-to-one conversation: the two user ids, lower-cased and
+ * sorted, so (A,B) and (B,A) give the same key. A unique database index on it
+ * stops two simultaneous requests from creating two DMs for the same pair.
+ */
+const dmKeyFor = (idA, idB) =>
+  [String(idA).toLowerCase(), String(idB).toLowerCase()].sort().join(":");
+
 module.exports = {
+  dmKeyFor,
   isValidObjectId,
   normalizeParticipantIds,
   normalizeEmail,
