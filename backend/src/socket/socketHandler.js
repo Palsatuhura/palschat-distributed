@@ -297,7 +297,9 @@ const socketHandler = (io, presenceClient) => {
         });
       }
 
-      if (overall.abusive) {
+      // `socket.connected` guards against logging and disconnecting again for
+      // every event still queued behind the one that tripped the limit.
+      if (overall.abusive && socket.connected) {
         console.warn(
           `🚫 Disconnecting socket ${socket.id} (user ${socket.userId}) for flooding`
         );
