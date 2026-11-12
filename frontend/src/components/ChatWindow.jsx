@@ -157,6 +157,29 @@ const ChatWindow = ({ onMenuClick }) => {
     };
   }, [activeConversation?._id]);
 
+  // ─── Mark as read when the person comes back to this tab ────────────────
+  // Messages that arrive while the tab is hidden stay unread until it is
+  // shown again.
+  useEffect(() => {
+    if (!activeConversation?._id) return;
+
+    const conversationId = activeConversation._id;
+
+    const markReadIfVisible = () => {
+      if (document.visibilityState === "visible" && socket.connected) {
+        socket.emit("mark_read", { conversationId });
+      }
+    };
+
+    document.addEventListener("visibilitychange", markReadIfVisible);
+    window.addEventListener("focus", markReadIfVisible);
+
+    return () => {
+      document.removeEventListener("visibilitychange", markReadIfVisible);
+      window.removeEventListener("focus", markReadIfVisible);
+    };
+  }, [activeConversation?._id]);
+
   // ─── Load an older page when the user asks for it ────────────────────────
   const loadOlderMessages = async () => {
     const oldest = messages[0];

@@ -3,7 +3,8 @@ const mongoose = require("mongoose");
 /**
  * Message Schema
  * Each message belongs to a conversation and has one sender.
- * - readBy: array of User IDs who have read this message (for read receipts)
+ * - deliveredTo: User IDs whose device received it (one tick -> two grey ticks)
+ * - readBy: array of User IDs who have read this message (two blue ticks)
  */
 const messageSchema = new mongoose.Schema(
   {
@@ -23,6 +24,13 @@ const messageSchema = new mongoose.Schema(
       trim: true,
       maxlength: [2000, "Message cannot exceed 2000 characters"],
     },
+    // Which users' devices have RECEIVED this message (shown as grey ticks).
+    deliveredTo: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     // Track which users have seen this message
     readBy: [
       {

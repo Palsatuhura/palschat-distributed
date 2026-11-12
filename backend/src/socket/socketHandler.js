@@ -52,6 +52,41 @@ const socketHandler = (io, presenceClient) => {
     return Boolean(found);
   };
 
+  // Mark every message addressed to this user as delivered (they just came
+  // online) and tell the senders. One query to find the affected
+  // conversations, one to update, so it is cheap even for many chats.
+  const deliverPendingMessages = async (userId) => {
+    const conversations = await Conversation.find({ participants: userId })
+      .select("participants")
+      .lean();
+
+    if (conversations.length === 0) return;
+
+    const pending = {
+      conversation: { $in: conversations.map((c) => c._id) },
+      sender: { $ne: userId },
+      deliveredTo: { $ne: userId },
+    };
+
+    const affected = (await Message.distinct("conversation", pending)).map(String);
+
+    if (affected.length === 0) return;
+
+    await Message.updateMany(pending, { $addToSet: { deliveredTo: userId } });
+
+    for (const conversation of conversations) {
+      const conversationId = String(conversation._id);
+
+      if (!affected.includes(conversationId)) continue;
+
+      emitToUsers(
+        conversation.participants.map(String).filter((id) => id !== userId),
+        "messages_delivered",
+        { conversationId, userId }
+      );
+    }
+  };
+
   // Like canAccessConversation, but returns the participant ids (strings) so
   // a message can be delivered to each of them, or null if the user may not
   // access the conversation.
@@ -68,10 +103,24 @@ const socketHandler = (io, presenceClient) => {
     return conversation ? conversation.participants.map(String) : null;
   };
 
-  // Cheap check for high-frequency events (typing): a socket can only be in
-  // a conversation room if canAccessConversation passed in join_conversation.
-  const hasJoinedConversation = (socket, conversationId) =>
-    isValidObjectId(conversationId) && socket.rooms.has(conversationId);
+  /*
+   * Send an event to the private room of each given user. Unlike the
+   * conversation room, a user room needs no "join" step: every authenticated
+   * socket is in its own user's room from the moment it connects. Typing
+   * indicators and receipts therefore reach the other person even if their
+   * browser has not (or not yet) joined the conversation room.
+   */
+  const emitToUsers = (userIds, event, payload) => {
+    if (userIds.length === 0) return;
+
+    let target = io.to(getUserRoom(userIds[0]));
+
+    for (const id of userIds.slice(1)) {
+      target = target.to(getUserRoom(id));
+    }
+
+    target.emit(event, payload);
+  };
 
   const rejectEvent = (socket, message) => {
     socket.emit("error", { message });
@@ -574,60 +623,69 @@ const socketHandler = (io, presenceClient) => {
       }
     );
 
-    socket.on(
-      "typing",
-      (data) => {
-        // `data` is client-controlled and may be undefined; reading a
-        // property of undefined inside an event handler would throw.
-        const conversationId =
-          data?.conversationId;
+    /*
+     * Typing indicators are sent to the OTHER participants' private rooms.
+     * Who the participants are is looked up (and remembered for a minute per
+     * socket), which also proves the sender belongs to the conversation.
+     */
+    const participantCache = new Map();
+    const PARTICIPANT_CACHE_MS = 60 * 1000;
 
-        if (
-          !hasJoinedConversation(
-            socket,
-            conversationId
-          )
-        ) {
-          return;
-        }
+    const otherParticipants = async (conversationId) => {
+      if (!isValidObjectId(conversationId)) return null;
 
-        socket
-          .to(conversationId)
-          .emit("typing", {
-            userId:
-              socket.userId,
-            userName:
-              socket.user.name,
-            conversationId,
-          });
+      const cached = participantCache.get(conversationId);
+
+      if (cached && cached.until > Date.now()) return cached.ids;
+
+      const all = await getParticipantIds(conversationId, socket.userId);
+
+      if (!all) {
+        participantCache.delete(conversationId);
+        return null;
       }
-    );
 
-    socket.on(
-      "stop_typing",
-      (data) => {
-        const conversationId =
-          data?.conversationId;
+      const ids = all.filter((id) => id !== socket.userId);
 
-        if (
-          !hasJoinedConversation(
-            socket,
-            conversationId
-          )
-        ) {
-          return;
-        }
+      participantCache.set(conversationId, {
+        ids,
+        until: Date.now() + PARTICIPANT_CACHE_MS,
+      });
 
-        socket
-          .to(conversationId)
-          .emit("stop_typing", {
-            userId:
-              socket.userId,
-            conversationId,
-          });
+      return ids;
+    };
+
+    const relayTyping = (event) => async (data) => {
+      try {
+        // `data` is client-controlled and may be undefined.
+        const conversationId = data?.conversationId;
+
+        const others = await otherParticipants(conversationId);
+
+        if (!others) return;
+
+        const payload = {
+          userId: socket.userId,
+          conversationId,
+        };
+
+        if (event === "typing") payload.userName = socket.user.name;
+
+        emitToUsers(others, event, payload);
+      } catch (error) {
+        console.error(`${event} error:`, error.message);
       }
-    );
+    };
 
+    socket.on("typing", relayTyping("typing"));
+    socket.on("stop_typing", relayTyping("stop_typing"));
+
+    /*
+     * Receipts. "Delivered" means the other person's app received the
+     * message; "read" means they are looking at it. Both are announced to
+     * the other participants' private rooms, so the sender sees the ticks
+     * change even if their browser is not in the conversation room.
+     */
     socket.on(
       "mark_read",
       async (data) => {
@@ -635,54 +693,117 @@ const socketHandler = (io, presenceClient) => {
           const conversationId =
             data?.conversationId;
 
-          const authenticatedUserId =
+          const readerId =
             socket.userId;
 
           // Only participants may mark messages as read.
-          const allowed =
-            await canAccessConversation(
+          const participantIds =
+            await getParticipantIds(
               conversationId,
-              authenticatedUserId
+              readerId
             );
 
-          if (!allowed) {
+          if (!participantIds) {
             return;
           }
 
-          await Message.updateMany(
-            {
-              conversation:
-                conversationId,
-              readBy: {
-                $ne:
-                  authenticatedUserId,
-              },
-              sender: {
-                $ne:
-                  authenticatedUserId,
-              },
-            },
-            {
-              $addToSet: {
-                readBy:
-                  authenticatedUserId,
-              },
-            }
-          );
-
-          socket
-            .to(conversationId)
-            .emit(
-              "messages_read",
+          const result =
+            await Message.updateMany(
               {
-                conversationId,
-                userId:
-                  authenticatedUserId,
+                conversation:
+                  conversationId,
+                readBy: {
+                  $ne: readerId,
+                },
+                sender: {
+                  $ne: readerId,
+                },
+              },
+              {
+                // Reading a message implies it was delivered.
+                $addToSet: {
+                  readBy: readerId,
+                  deliveredTo: readerId,
+                },
               }
             );
+
+          // Nothing changed: no need to tell anybody.
+          if (result.modifiedCount === 0) {
+            return;
+          }
+
+          emitToUsers(
+            participantIds.filter((id) => id !== readerId),
+            "messages_read",
+            {
+              conversationId,
+              userId: readerId,
+            }
+          );
         } catch (error) {
           console.error(
             "mark_read error:",
+            error
+          );
+        }
+      }
+    );
+
+    socket.on(
+      "mark_delivered",
+      async (data) => {
+        try {
+          const conversationId =
+            data?.conversationId;
+
+          const userIdHere =
+            socket.userId;
+
+          const participantIds =
+            await getParticipantIds(
+              conversationId,
+              userIdHere
+            );
+
+          if (!participantIds) {
+            return;
+          }
+
+          const result =
+            await Message.updateMany(
+              {
+                conversation:
+                  conversationId,
+                deliveredTo: {
+                  $ne: userIdHere,
+                },
+                sender: {
+                  $ne: userIdHere,
+                },
+              },
+              {
+                $addToSet: {
+                  deliveredTo: userIdHere,
+                },
+              }
+            );
+
+          if (result.modifiedCount === 0) {
+            return;
+          }
+
+          emitToUsers(
+            participantIds.filter((id) => id !== userIdHere),
+            "messages_delivered",
+            {
+              conversationId,
+              userId: userIdHere,
+            }
+          );
+        } catch (error) {
+          console.error(
+            "mark_delivered error:",
             error
           );
         }
@@ -707,6 +828,18 @@ const socketHandler = (io, presenceClient) => {
           socket.id
         );
       }
+    );
+
+    /*
+     * Messages that arrived while this user was offline count as delivered
+     * the moment they come back. Runs in the background and never blocks or
+     * breaks the connection.
+     */
+    deliverPendingMessages(userId).catch((error) =>
+      console.error(
+        "deliverPendingMessages error:",
+        error.message
+      )
     );
 
     /*

@@ -92,3 +92,34 @@ test("resetChat forgets the previous user's data", () => {
   assert.equal(state().activeConversation, null);
   assert.deepEqual(state().unreadCounts, {});
 });
+
+test("applyReceipt: a read receipt marks messages read AND delivered, for the open chat only", () => {
+  reset();
+  state().setActiveConversation({ _id: "c1" });
+  state().setMessages([
+    msg("m1", 1, { sender: { _id: "me" }, readBy: ["me"], deliveredTo: [] }),
+    msg("m2", 2, { sender: { _id: "bob" }, readBy: ["bob"] }),
+  ]);
+
+  state().applyReceipt("other-conversation", "bob", "readBy");
+  assert.deepEqual(state().messages[0].readBy, ["me"], "other conversation ignored");
+
+  state().applyReceipt("c1", "bob", "readBy");
+  assert.deepEqual(state().messages[0].readBy, ["me", "bob"]);
+  assert.deepEqual(state().messages[0].deliveredTo, ["bob"]);
+  assert.deepEqual(state().messages[1].readBy, ["bob"], "bob's own message is untouched");
+});
+
+test("applyReceipt: delivery does not mark as read, and repeats change nothing", () => {
+  reset();
+  state().setActiveConversation({ _id: "c1" });
+  state().setMessages([msg("m1", 1, { sender: { _id: "me" }, readBy: ["me"] })]);
+
+  state().applyReceipt("c1", "bob", "deliveredTo");
+  assert.deepEqual(state().messages[0].deliveredTo, ["bob"]);
+  assert.deepEqual(state().messages[0].readBy, ["me"]);
+
+  const before = state().messages;
+  state().applyReceipt("c1", "bob", "deliveredTo");
+  assert.equal(state().messages, before, "no change, no new array");
+});

@@ -177,6 +177,35 @@ const useChatStore = create((set, get) => ({
       return { onlineUsers: newSet, users };
     }),
 
+  /**
+   * Record that `userId` received ("deliveredTo") or read ("readBy") the
+   * messages of the open conversation, so their ticks update live.
+   * Reading implies delivery. Messages written by `userId` are left alone.
+   */
+  applyReceipt: (conversationId, userId, field) =>
+    set((state) => {
+      if (state.activeConversation?._id !== conversationId) return {};
+
+      const fields = field === "readBy" ? ["readBy", "deliveredTo"] : ["deliveredTo"];
+      let changed = false;
+
+      const messages = state.messages.map((message) => {
+        if ((message.sender?._id ?? message.sender) === userId) return message;
+
+        let updated = message;
+        for (const name of fields) {
+          const list = updated[name] || [];
+          if (!list.includes(userId)) {
+            updated = { ...updated, [name]: [...list, userId] };
+            changed = true;
+          }
+        }
+        return updated;
+      });
+
+      return changed ? { messages } : {};
+    }),
+
   // ─── Typing Actions ────────────────────────────────────────────────────
   setUserTyping: (conversationId, userId, userName) =>
     set((state) => ({

@@ -178,11 +178,33 @@ const useSocket = () => {
       const currentUserId =
         useAuthStore.getState().user?._id;
 
+      const senderId =
+        message.sender?._id ?? message.sender;
+
+      const isFromOther = senderId !== currentUserId;
+
       if (
         message.conversation ===
         activeConversation?._id
       ) {
         addMessage(message);
+      }
+
+      if (isFromOther) {
+        // This device has the message: the sender's ticks can go double.
+        socket.emit("mark_delivered", {
+          conversationId: message.conversation,
+        });
+
+        // ...and if the person is looking at that chat right now, it is read.
+        if (
+          message.conversation === activeConversation?._id &&
+          document.visibilityState === "visible"
+        ) {
+          socket.emit("mark_read", {
+            conversationId: message.conversation,
+          });
+        }
       }
 
       const isKnown = conversations.some(
@@ -226,6 +248,19 @@ const useSocket = () => {
         userId,
         userName
       );
+    };
+
+    // Another participant's app received / read our messages: update ticks.
+    const handleMessagesRead = ({ conversationId, userId }) => {
+      useChatStore
+        .getState()
+        .applyReceipt(conversationId, userId, "readBy");
+    };
+
+    const handleMessagesDelivered = ({ conversationId, userId }) => {
+      useChatStore
+        .getState()
+        .applyReceipt(conversationId, userId, "deliveredTo");
     };
 
     const handleStopTyping = ({
@@ -288,6 +323,9 @@ const useSocket = () => {
       handleStopTyping
     );
 
+    socket.on("messages_read", handleMessagesRead);
+    socket.on("messages_delivered", handleMessagesDelivered);
+
     if (!socket.connected) {
       console.log(
         "🔌 Connecting authenticated socket..."
@@ -348,6 +386,9 @@ const useSocket = () => {
         "stop_typing",
         handleStopTyping
       );
+
+      socket.off("messages_read", handleMessagesRead);
+      socket.off("messages_delivered", handleMessagesDelivered);
 
       /*
        * Do not disconnect here.

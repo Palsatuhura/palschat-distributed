@@ -36,6 +36,10 @@ const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => 
   const isRead =
     message.readBy?.some((id) => id !== message.sender?._id) || false;
 
+  // Delivered = the other person's app received it (read implies delivered).
+  const isDelivered = isRead || (message.deliveredTo?.length ?? 0) > 0;
+  const receiptLabel = isRead ? "Read" : isDelivered ? "Delivered" : "Sent";
+
   return (
     <div className={`flex items-end gap-2 ${isOwnMessage ? "flex-row-reverse" : "flex-row"} 
                      ${isSameSenderAsPrevious ? "mt-0.5" : "mt-3"}`}>
@@ -74,15 +78,18 @@ const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => 
             {/* Read receipt ticks (only for own messages) */}
             {isOwnMessage && (
               <svg
-                className={`w-3.5 h-3.5 ${isRead ? "text-blue-200" : "text-blue-300"}`}
+                className={`w-3.5 h-3.5 ${isRead ? "text-white" : "text-blue-300"}`}
                 fill="currentColor"
                 viewBox="0 0 16 16"
+                role="img"
+                aria-label={receiptLabel}
               >
-                {isRead ? (
-                  // Double tick (read)
+                <title>{receiptLabel}</title>
+                {isDelivered ? (
+                  // Double tick (delivered: faint, read: bright white)
                   <path d="M12.354 4.354a.5.5 0 0 0-.708-.708L5 11.293 1.854 8.146a.5.5 0 1 0-.708.708l3.5 3.5a.5.5 0 0 0 .708 0l7-7zm-4.208 7-.896-.897.707-.707.543.543 6.646-6.647a.5.5 0 0 1 .708.708l-7 7a.5.5 0 0 1-.708 0z" />
                 ) : (
-                  // Single tick (delivered)
+                  // Single tick (sent)
                   <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z" />
                 )}
               </svg>

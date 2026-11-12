@@ -278,6 +278,42 @@ async function main() {
   const carolRead = await api("GET", `/conversations/${convId}/messages`, { token: carol.token });
   check("an outsider still cannot read the history (403)", carolRead.status === 403, `HTTP ${carolRead.status}`);
 
+  // ── Typing and receipts (reach people who have not joined the room) ─────
+  console.log("\nTyping and receipts");
+
+  const typingFrom = (socket, userId) =>
+    eventsOf(socket, "typing").filter((e) => e.payload?.userId === userId && e.payload?.conversationId === convId);
+
+  sa.emit("typing", { conversationId: convId });
+  check("bob sees alice typing without having joined the room", await waitFor(() => typingFrom(sb, alice.user._id).length === 1));
+  check("...with her name", typingFrom(sb, alice.user._id)[0]?.payload?.userName === alice.user.name, JSON.stringify(typingFrom(sb, alice.user._id)[0]?.payload));
+
+  sc.emit("typing", { conversationId: convId });
+  await sleep(GRACE_MS);
+  check("an outsider's typing is NOT relayed to bob", typingFrom(sb, carol.user._id).length === 0);
+
+  sb.emit("mark_delivered", { conversationId: convId });
+  check("alice is told bob's app received the messages", await waitFor(() => eventsOf(sa, "messages_delivered").some((e) => e.payload?.userId === bob.user._id && e.payload?.conversationId === convId)));
+
+  const afterDelivery = await api("GET", `/conversations/${convId}/messages?limit=100`, { token: alice.token });
+  const allDelivered = Array.isArray(afterDelivery.data) && afterDelivery.data.length > 0 && afterDelivery.data.every((m) => (m.deliveredTo || []).includes(bob.user._id));
+  check("every message now lists bob in deliveredTo", allDelivered);
+  check("...but none is marked read yet", afterDelivery.data.every((m) => !(m.readBy || []).includes(bob.user._id)));
+
+  sb.emit("mark_read", { conversationId: convId });
+  check("alice is told bob read the messages", await waitFor(() => eventsOf(sa, "messages_read").some((e) => e.payload?.userId === bob.user._id)));
+
+  const afterRead = await api("GET", `/conversations/${convId}/messages?limit=100`, { token: alice.token });
+  check("every message now lists bob in readBy", afterRead.data.every((m) => (m.readBy || []).includes(bob.user._id)));
+
+  const readEvents = eventsOf(sa, "messages_read").length;
+  sb.emit("mark_read", { conversationId: convId });
+  sc.emit("mark_read", { conversationId: convId });
+  sc.emit("mark_delivered", { conversationId: convId });
+  await sleep(GRACE_MS);
+  check("marking read again, or by an outsider, announces nothing new", eventsOf(sa, "messages_read").length === readEvents);
+  check("an outsider cannot add themselves to deliveredTo", (await api("GET", `/conversations/${convId}/messages?limit=100`, { token: alice.token })).data.every((m) => !(m.deliveredTo || []).includes(carol.user._id)));
+
   for (const socket of [sa, sb, sc]) socket.close();
 
   console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
