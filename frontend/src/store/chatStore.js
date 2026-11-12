@@ -14,15 +14,30 @@ import { create } from "zustand";
  *   - isLoadingMessages: loading state for message fetch
  *   - unreadCounts: Map of conversationId → unread message count
  */
-const useChatStore = create((set, get) => ({
+// Fresh copy of the data part of the store. Used at start-up and by
+// resetChat() on logout, so the next person to log in on this browser never
+// sees the previous user's conversations or messages.
+const initialData = () => ({
   users: [],
   conversations: [],
   activeConversation: null,
   messages: [],
+  hasMoreMessages: false, // true while older messages exist on the server
   onlineUsers: new Set(),
   typingUsers: {}, // { conversationId: { userId: userName } }
   isLoadingMessages: false,
   unreadCounts: {}, // { conversationId: count }
+});
+
+// Chat order: oldest first, ties broken by id (matches the server's order).
+const byAge = (a, b) =>
+  new Date(a.createdAt) - new Date(b.createdAt) || (a._id < b._id ? -1 : a._id > b._id ? 1 : 0);
+
+const useChatStore = create((set, get) => ({
+  ...initialData(),
+
+  /** Forget everything (logout). */
+  resetChat: () => set(initialData()),
 
   // ─── User Actions ──────────────────────────────────────────────────────
   setUsers: (users) => set({ users }),
@@ -48,13 +63,49 @@ const useChatStore = create((set, get) => ({
     }),
 
   setActiveConversation: (conversation) =>
-    set({
-      activeConversation: conversation,
-      messages: [], // clear messages when switching conversation
+    set((state) => {
+      // Clicking the conversation that is already open must not wipe its
+      // messages: nothing would reload them.
+      if (conversation?._id && conversation._id === state.activeConversation?._id) {
+        return { activeConversation: conversation };
+      }
+
+      return {
+        activeConversation: conversation,
+        messages: [], // clear messages when switching conversation
+        hasMoreMessages: false,
+      };
     }),
 
   // ─── Message Actions ───────────────────────────────────────────────────
   setMessages: (messages) => set({ messages }),
+  setHasMoreMessages: (hasMoreMessages) => set({ hasMoreMessages }),
+
+  /** Adds an OLDER page in front of the messages already shown. */
+  prependMessages: (older) =>
+    set((state) => {
+      const known = new Set(state.messages.map((m) => m._id));
+      const fresh = older.filter((m) => !known.has(m._id));
+      return { messages: [...fresh, ...state.messages] };
+    }),
+
+  /**
+   * Merges a list of messages into the current ones (after a reconnect, to
+   * fill the gap while offline). Duplicates are dropped and order is kept.
+   */
+  mergeMessages: (incoming) =>
+    set((state) => {
+      const byId = new Map(state.messages.map((m) => [m._id, m]));
+      let changed = false;
+      for (const m of incoming) {
+        if (!byId.has(m._id)) {
+          byId.set(m._id, m);
+          changed = true;
+        }
+      }
+      if (!changed) return {};
+      return { messages: [...byId.values()].sort(byAge) };
+    }),
   setIsLoadingMessages: (val) => set({ isLoadingMessages: val }),
 
   /**
@@ -71,9 +122,11 @@ const useChatStore = create((set, get) => ({
 
   /**
    * Updates the lastMessage of a conversation for sidebar preview.
-   * Also increments unread count if the conversation is not active.
+   * Also increments unread count if the conversation is not active and the
+   * message was written by someone else (your own messages, for example sent
+   * from another device, are never "unread").
    */
-  updateConversationLastMessage: (conversationId, message, activeConvId) =>
+  updateConversationLastMessage: (conversationId, message, activeConvId, currentUserId) =>
     set((state) => {
       const conversations = state.conversations.map((c) => {
         if (c._id === conversationId) {
@@ -87,7 +140,8 @@ const useChatStore = create((set, get) => ({
 
       // Increment unread count if not the active conversation
       let unreadCounts = { ...state.unreadCounts };
-      if (conversationId !== activeConvId) {
+      const senderId = message.sender?._id ?? message.sender;
+      if (conversationId !== activeConvId && senderId !== currentUserId) {
         unreadCounts[conversationId] = (unreadCounts[conversationId] || 0) + 1;
       }
 

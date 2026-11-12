@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import api from "../lib/axios";
 import socket from "../lib/socket";
 import useAuthStore from "../store/authStore";
@@ -25,19 +25,39 @@ import UserAvatar from "./UserAvatar";
 // Typing debounce delay in ms
 const TYPING_DEBOUNCE_MS = 2000;
 
+// How many messages to load at a time, and how long to wait for the server
+// to confirm a sent message before telling the user.
+const PAGE_SIZE = 50;
+const SEND_TIMEOUT_MS = 8000;
+
 const ChatWindow = ({ onMenuClick }) => {
-  const { user } = useAuthStore();
-  const {
-    activeConversation, messages,
-    setMessages, addMessage, setIsLoadingMessages, isLoadingMessages,
-    typingUsers, onlineUsers,
-  } = useChatStore();
+  // One selector per value: this component re-renders only when one of
+  // these changes, not on every unrelated store update.
+  const user = useAuthStore((s) => s.user);
+
+  const activeConversation = useChatStore((s) => s.activeConversation);
+  const messages = useChatStore((s) => s.messages);
+  const isLoadingMessages = useChatStore((s) => s.isLoadingMessages);
+  const hasMoreMessages = useChatStore((s) => s.hasMoreMessages);
+  const typingUsers = useChatStore((s) => s.typingUsers);
+  const onlineUsers = useChatStore((s) => s.onlineUsers);
+  const setMessages = useChatStore((s) => s.setMessages);
+  const prependMessages = useChatStore((s) => s.prependMessages);
+  const setHasMoreMessages = useChatStore((s) => s.setHasMoreMessages);
+  const addMessage = useChatStore((s) => s.addMessage);
+  const setIsLoadingMessages = useChatStore((s) => s.setIsLoadingMessages);
 
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
 
   // Ref to the messages container for auto-scroll
   const messagesEndRef = useRef(null);
+  // The scrolling box, and its height before older messages were added
+  // (used to keep the reader's place when a page is inserted above).
+  const scrollBoxRef = useRef(null);
+  const heightBeforePrependRef = useRef(null);
   // Ref to track whether we're currently "typing"
   const isTypingRef = useRef(false);
   // Ref to clear the typing debounce timer
@@ -96,34 +116,95 @@ const ChatWindow = ({ onMenuClick }) => {
   }, [activeConversation?._id]);
 
   // ─── Load message history when conversation changes ──────────────────────
+  // Loads the NEWEST page. Older messages are loaded on request (button).
   useEffect(() => {
     if (!activeConversation) return;
+
+    const conversationId = activeConversation._id;
+
+    // If the user switches conversation while this request is running, its
+    // late answer must not overwrite the new conversation's messages.
+    let cancelled = false;
 
     const fetchMessages = async () => {
       try {
         setIsLoadingMessages(true);
-        const { data } = await api.get(`/conversations/${activeConversation._id}/messages`);
-        setMessages(data);
+        setSendError("");
 
-        // Mark messages as read
-        socket.emit("mark_read", {
-          conversationId: activeConversation._id,
-          userId: user._id,
+        const { data } = await api.get(`/conversations/${conversationId}/messages`, {
+          params: { limit: PAGE_SIZE },
         });
+
+        if (cancelled) return;
+
+        setMessages(data);
+        // A full page means there may be older messages.
+        setHasMoreMessages(data.length === PAGE_SIZE);
+
+        // Mark messages as read (the server knows who we are)
+        socket.emit("mark_read", { conversationId });
       } catch (err) {
-        console.error("Fetch messages error:", err);
+        if (!cancelled) console.error("Fetch messages error:", err);
       } finally {
-        setIsLoadingMessages(false);
+        if (!cancelled) setIsLoadingMessages(false);
       }
     };
 
     fetchMessages();
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeConversation?._id]);
 
-  // ─── Auto-scroll to bottom on new messages ─────────────────────────────
+  // ─── Load an older page when the user asks for it ────────────────────────
+  const loadOlderMessages = async () => {
+    const oldest = messages[0];
+
+    if (!activeConversation || !oldest || isLoadingOlder) return;
+
+    const conversationId = activeConversation._id;
+
+    try {
+      setIsLoadingOlder(true);
+
+      const { data } = await api.get(`/conversations/${conversationId}/messages`, {
+        params: { limit: PAGE_SIZE, before: oldest._id },
+      });
+
+      // Ignore the answer if the user has opened another conversation.
+      if (useChatStore.getState().activeConversation?._id !== conversationId) return;
+
+      heightBeforePrependRef.current = scrollBoxRef.current?.scrollHeight ?? null;
+      prependMessages(data);
+      setHasMoreMessages(data.length === PAGE_SIZE);
+    } catch (err) {
+      console.error("Load older messages error:", err);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  };
+
+  // After older messages are inserted above, keep the reader looking at the
+  // same message instead of jumping to the top.
+  useLayoutEffect(() => {
+    const box = scrollBoxRef.current;
+    const before = heightBeforePrependRef.current;
+
+    if (box && before !== null) {
+      box.scrollTop += box.scrollHeight - before;
+      heightBeforePrependRef.current = null;
+    }
+  }, [messages]);
+
+  // ─── Auto-scroll to bottom on NEW messages ─────────────────────────────
+  // Keyed on the newest message, so inserting older messages above does not
+  // pull the view down.
+  const newestMessageId = messages.length ? messages[messages.length - 1]._id : null;
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [newestMessageId]);
 
   // ─── Textarea auto-resize ──────────────────────────────────────────────
   useEffect(() => {
@@ -140,8 +221,6 @@ const ChatWindow = ({ onMenuClick }) => {
       isTypingRef.current = true;
       socket.emit("typing", {
         conversationId: activeConversation._id,
-        userId: user._id,
-        userName: user.name,
       });
     }
 
@@ -151,7 +230,6 @@ const ChatWindow = ({ onMenuClick }) => {
       isTypingRef.current = false;
       socket.emit("stop_typing", {
         conversationId: activeConversation._id,
-        userId: user._id,
       });
     }, TYPING_DEBOUNCE_MS);
   }, [activeConversation, user]);
@@ -163,7 +241,6 @@ const ChatWindow = ({ onMenuClick }) => {
       if (isTypingRef.current && activeConversation) {
         socket.emit("stop_typing", {
           conversationId: activeConversation._id,
-          userId: user._id,
         });
         isTypingRef.current = false;
       }
@@ -171,6 +248,9 @@ const ChatWindow = ({ onMenuClick }) => {
   }, [activeConversation?._id]);
 
   // ─── Send message ──────────────────────────────────────────────────────
+  // The server confirms every message (an "acknowledgement"). The text stays
+  // in the box until that confirmation arrives, so a failed send is never
+  // lost and can simply be sent again.
   const handleSend = () => {
     const text = inputText.trim();
 
@@ -183,15 +263,16 @@ const ChatWindow = ({ onMenuClick }) => {
     }
 
     if (!socket.connected) {
-      console.warn(
-        "⚠️ Cannot send message: Socket.IO is not connected."
-      );
+      setSendError("You are offline. Reconnecting, then try again.");
 
       socket.connect();
 
       return;
     }
 
+    const conversationId = activeConversation._id;
+
+    setSendError("");
     setIsSending(true);
 
     // Stop typing indicator
@@ -203,46 +284,53 @@ const ChatWindow = ({ onMenuClick }) => {
       socket.emit(
         "stop_typing",
         {
-          conversationId:
-            activeConversation._id,
-          userId: user._id,
+          conversationId,
         }
       );
 
       isTypingRef.current = false;
     }
 
-    console.log(
-      `📤 Sending message through socket ${socket.id}`
-    );
+    // timeout(): if the server never answers, the callback receives an error
+    // instead of waiting forever.
+    socket
+      .timeout(SEND_TIMEOUT_MS)
+      .emit(
+        "send_message",
+        {
+          conversationId,
+          text,
+        },
+        (error, response) => {
+          setIsSending(false);
 
-    // Emit message via Socket.IO.
-    // The backend saves it and broadcasts it through
-    // the Redis adapter to all servers.
-    socket.emit(
-      "send_message",
-      {
-        conversationId:
-          activeConversation._id,
-        senderId: user._id,
-        text,
-      }
-    );
+          if (error) {
+            setSendError(
+              "No confirmation from the server. Check the chat before sending again."
+            );
+            return;
+          }
 
-    setInputText("");
+          if (!response?.ok) {
+            setSendError(
+              response?.message || "Message could not be sent."
+            );
+            return;
+          }
 
-    if (textareaRef.current) {
-      textareaRef.current.style.height =
-        "auto";
-    }
+          // Clear the box, unless the user already started typing something else.
+          setInputText((current) => (current === text ? "" : current));
 
-    /*
-     * We don't wait for a server acknowledgement yet.
-     * The message will arrive through receive_message.
-     */
-    setTimeout(() => {
-      setIsSending(false);
-    }, 300);
+          // Show it right away if its conversation is still open (the same
+          // message also arrives via receive_message; the store drops the copy).
+          if (
+            response.message &&
+            useChatStore.getState().activeConversation?._id === conversationId
+          ) {
+            addMessage(response.message);
+          }
+        }
+      );
   };
 
   const handleKeyDown = (e) => {
@@ -337,7 +425,7 @@ const ChatWindow = ({ onMenuClick }) => {
       </div>
 
       {/* ── Messages area ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
+      <div ref={scrollBoxRef} className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
         {isLoadingMessages ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -350,6 +438,17 @@ const ChatWindow = ({ onMenuClick }) => {
           </div>
         ) : (
           <>
+            {hasMoreMessages && (
+              <div className="flex justify-center mb-3">
+                <button
+                  onClick={loadOlderMessages}
+                  disabled={isLoadingOlder}
+                  className="text-xs text-blue-600 hover:text-blue-700 disabled:text-gray-400 px-3 py-1 rounded-full bg-white border border-gray-200"
+                >
+                  {isLoadingOlder ? "Loading..." : "Load older messages"}
+                </button>
+              </div>
+            )}
             {messages.map((msg, idx) => (
               <MessageBubble
                 key={msg._id}
@@ -385,6 +484,11 @@ const ChatWindow = ({ onMenuClick }) => {
 
       {/* ── Input bar ── */}
       <div className="bg-white border-t border-gray-200 px-4 py-3">
+        {sendError && (
+          <p role="alert" className="text-xs text-red-600 mb-2 ml-4">
+            {sendError}
+          </p>
+        )}
         <div className="flex items-end gap-2">
           <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 flex items-end gap-2">
             <textarea

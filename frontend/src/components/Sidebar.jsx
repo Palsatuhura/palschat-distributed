@@ -28,12 +28,21 @@ const formatPreviewTime = (date) => {
 };
 
 const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
-  const { user, logout } = useAuthStore();
-  const {
-    users, conversations, activeConversation,
-    setUsers, setConversations, addOrUpdateConversation,
-    setActiveConversation, onlineUsers, unreadCounts, clearUnreadCount,
-  } = useChatStore();
+  // One selector per value: the component re-renders only when THAT value
+  // changes, not on every typing event or presence update in the store.
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+
+  const users = useChatStore((s) => s.users);
+  const conversations = useChatStore((s) => s.conversations);
+  const activeConversation = useChatStore((s) => s.activeConversation);
+  const onlineUsers = useChatStore((s) => s.onlineUsers);
+  const unreadCounts = useChatStore((s) => s.unreadCounts);
+  const setUsers = useChatStore((s) => s.setUsers);
+  const setConversations = useChatStore((s) => s.setConversations);
+  const addOrUpdateConversation = useChatStore((s) => s.addOrUpdateConversation);
+  const setActiveConversation = useChatStore((s) => s.setActiveConversation);
+  const clearUnreadCount = useChatStore((s) => s.clearUnreadCount);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("chats"); // "chats" | "people"
@@ -129,6 +138,10 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
     if (socket.connected || socket.active) {
       socket.disconnect();
     }
+
+    // Forget the previous user's conversations and messages, so the next
+    // login in this browser starts clean.
+    useChatStore.getState().resetChat();
 
     // Clear the authenticated user.
     logout();

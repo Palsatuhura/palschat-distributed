@@ -4,6 +4,7 @@ const User = require("../models/User");
 const { verifyToken } = require("../utils/jwt");
 const { createEventLimiter } = require("../utils/eventLimiter");
 const { isValidObjectId } = require("../utils/validators");
+const { createPresence, readPresenceConfig } = require("./presence");
 const {
   MAX_MESSAGE_LENGTH,
   SOCKET_EVENT_WINDOW_MS,
@@ -12,28 +13,24 @@ const {
 } = require("../utils/constants");
 
 /*
- * Distributed presence architecture
- *
- * Each user's active sockets are stored in Redis:
- *
- *   presence:user:<userId>
- *       ├── socket-id-1
- *       ├── socket-id-2
- *       └── socket-id-3
- *
- * A global Redis Set keeps track of users who currently have
- * at least one active socket:
- *
- *   presence:online-users
+ * Presence ("who is online") lives in Redis so every backend instance sees
+ * the same picture. See ./presence.js for how it stays correct when a server
+ * crashes. This file decides WHEN to announce changes to clients.
  */
 
 const socketHandler = (io, presenceClient) => {
   const getUserRoom = (userId) => `user:${userId}`;
 
-  const getPresenceKey = (userId) =>
-    `presence:user:${userId}`;
+  const config = readPresenceConfig();
 
-  const ONLINE_USERS_KEY = "presence:online-users";
+  const presence = createPresence({
+    redis: presenceClient,
+    ttlMs: config.ttlMs,
+    commandTimeoutMs: config.commandTimeoutMs,
+  });
+
+  // userId -> timer waiting to announce "offline" (see scheduleOffline).
+  const offlineTimers = new Map();
 
   /*
    * ─── Authorization helpers ──────────────────────────────────────────────
@@ -92,67 +89,111 @@ const socketHandler = (io, presenceClient) => {
   // fires immediately, so longer waits are not scheduled at all.
   const MAX_TIMER_MS = 2 ** 31 - 1;
 
-  /*
-   * Remove a socket from Redis presence.
-   *
-   * If that was the user's final socket, mark the user offline.
-   */
-  const removeSocketPresence = async (userId, socketId) => {
-    if (!userId || !socketId) return;
-
-    const presenceKey = getPresenceKey(userId);
+  // Tell everyone this user is offline, and remember when they were last seen.
+  const announceOffline = async (userId) => {
+    const lastSeen = new Date();
 
     try {
-      await presenceClient.sRem(
-        presenceKey,
-        socketId
-      );
+      await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen });
+    } catch (error) {
+      console.error("Could not save lastSeen:", error.message);
+    }
 
-      const remainingSockets =
-        await presenceClient.sCard(
-          presenceKey
-        );
+    io.emit("user_offline", { userId, lastSeen });
 
-      if (remainingSockets === 0) {
-        await presenceClient.del(
-          presenceKey
-        );
+    console.log(`🔴 User became offline: ${userId}`);
+  };
 
-        await presenceClient.sRem(
-          ONLINE_USERS_KEY,
-          userId
-        );
+  const announceOnline = async (userId) => {
+    try {
+      await User.findByIdAndUpdate(userId, { isOnline: true });
+    } catch (error) {
+      console.error("Could not save online flag:", error.message);
+    }
 
-        const lastSeen = new Date();
+    io.emit("user_online", { userId });
 
-        await User.findByIdAndUpdate(
-          userId,
-          {
-            isOnline: false,
-            lastSeen,
-          }
-        );
+    console.log(`🟢 User became online: ${userId}`);
+  };
 
-        io.emit("user_offline", {
-          userId,
-          lastSeen,
-        });
+  /*
+   * A user whose last socket closed is not announced offline immediately:
+   * a page refresh or a short network blip reconnects within seconds, and
+   * announcing "offline" then "online" again makes the dot flicker for
+   * everyone. Wait a short grace period, then check again.
+   */
+  const scheduleOffline = (userId) => {
+    clearTimeout(offlineTimers.get(userId));
 
-        console.log(
-          `🔴 User became offline: ${userId}`
-        );
-      } else {
-        console.log(
-          `🟢 User ${userId} still has ${remainingSockets} active socket(s)`
-        );
+    const timer = setTimeout(async () => {
+      offlineTimers.delete(userId);
+
+      try {
+        if (await presence.claimOffline(userId)) {
+          await announceOffline(userId);
+        }
+      } catch (error) {
+        // Redis unreachable: the sweep (every server runs one) will catch it.
+        console.error("Presence offline check failed:", error.message);
+      }
+    }, config.graceMs);
+
+    offlineTimers.set(userId, timer);
+  };
+
+  // A socket is gone (closed, or never finished connecting).
+  const handleSocketGone = async (userId, socketId) => {
+    if (!userId || !socketId) return;
+
+    try {
+      await presence.removeSocket(userId, socketId);
+    } catch (error) {
+      console.error("Presence cleanup error:", error.message);
+    }
+
+    scheduleOffline(userId);
+  };
+
+  // Sockets connected to THIS server (other servers renew their own).
+  const localEntries = () => {
+    const entries = [];
+
+    for (const socket of io.sockets.sockets.values()) {
+      if (socket.userId && socket.connected) {
+        entries.push({ userId: socket.userId, socketId: socket.id });
+      }
+    }
+
+    return entries;
+  };
+
+  // Keep this server's sockets alive in Redis, and clean up after servers
+  // that died. Timers never keep the process from exiting.
+  const heartbeatTimer = setInterval(async () => {
+    try {
+      await presence.heartbeat(localEntries());
+    } catch (error) {
+      console.error("Presence heartbeat failed:", error.message);
+    }
+  }, config.heartbeatMs);
+
+  const runSweep = async () => {
+    try {
+      for (const userId of await presence.sweep()) {
+        await announceOffline(userId);
       }
     } catch (error) {
-      console.error(
-        "Redis presence cleanup error:",
-        error
-      );
+      console.error("Presence sweep failed:", error.message);
     }
   };
+
+  const sweepTimer = setInterval(runSweep, config.sweepMs);
+
+  heartbeatTimer.unref();
+  sweepTimer.unref();
+
+  // Clear anything left behind by a previous run right away.
+  runSweep();
 
   io.use(async (socket, next) => {
     try {
@@ -234,8 +275,6 @@ const socketHandler = (io, presenceClient) => {
 
     const userId = socket.userId;
     const userRoom = getUserRoom(userId);
-    const presenceKey =
-      getPresenceKey(userId);
 
     /*
      * End the session when the login token expires. Without this, a socket
@@ -663,7 +702,7 @@ const socketHandler = (io, presenceClient) => {
           `🔴 Socket disconnected: ${socket.id}`
         );
 
-        await removeSocketPresence(
+        await handleSocketGone(
           socket.userId,
           socket.id
         );
@@ -673,6 +712,8 @@ const socketHandler = (io, presenceClient) => {
     /*
      * Presence setup. Runs LAST so that all handlers above are already
      * listening while these (slow) Redis/MongoDB calls are in flight.
+     * Presence is a convenience: if Redis is slow or down, chat itself keeps
+     * working and only the online dots are affected.
      */
     try {
       socket.join(userRoom);
@@ -681,36 +722,18 @@ const socketHandler = (io, presenceClient) => {
         `👤 Joined user presence room: ${userRoom}`
       );
 
-      const existingSockets =
-        await presenceClient.sCard(
-          presenceKey
-        );
+      // The user is (still) here, so a pending "offline" must not fire.
+      clearTimeout(offlineTimers.get(userId));
+      offlineTimers.delete(userId);
 
-      await presenceClient.sAdd(
-        presenceKey,
-        socket.id
-      );
-
-      await presenceClient.sAdd(
-        ONLINE_USERS_KEY,
-        userId
-      );
-
-      if (existingSockets === 0) {
-        await User.findByIdAndUpdate(
+      const becameOnline =
+        await presence.addSocket(
           userId,
-          {
-            isOnline: true,
-          }
+          socket.id
         );
 
-        io.emit("user_online", {
-          userId,
-        });
-
-        console.log(
-          `🟢 User became online: ${userId}`
-        );
+      if (becameOnline) {
+        await announceOnline(userId);
       } else {
         console.log(
           `🟢 User opened another socket: ${userId}`
@@ -718,9 +741,7 @@ const socketHandler = (io, presenceClient) => {
       }
 
       const onlineUserIds =
-        await presenceClient.sMembers(
-          ONLINE_USERS_KEY
-        );
+        await presence.onlineUserIds();
 
       socket.emit(
         "online_users",
@@ -728,25 +749,57 @@ const socketHandler = (io, presenceClient) => {
       );
 
       console.log(
-        `🌐 Redis online users: ${onlineUserIds.length}`
+        `🌐 Online users: ${onlineUserIds.length}`
       );
 
       // The socket may have disconnected while the calls above were in
       // flight. Its disconnect handler already ran, so clean up the entry
-      // we just added; otherwise the user would stay "online" forever.
+      // we just added; otherwise the user would stay "online" until it
+      // expires.
       if (!socket.connected) {
-        await removeSocketPresence(
+        await handleSocketGone(
           userId,
           socket.id
         );
       }
     } catch (error) {
       console.error(
-        "Redis presence connection error:",
-        error
+        "Presence setup error:",
+        error.message
       );
     }
   });
+
+  /*
+   * Called on server shutdown. Stops the timers and takes this server's
+   * sockets out of Redis right away, announcing offline any user who has no
+   * socket left anywhere, instead of leaving them to expire.
+   */
+  const shutdown = async () => {
+    clearInterval(heartbeatTimer);
+    clearInterval(sweepTimer);
+
+    for (const timer of offlineTimers.values()) clearTimeout(timer);
+    offlineTimers.clear();
+
+    const entries = localEntries();
+
+    try {
+      await presence.removeSockets(entries);
+
+      const userIds = [...new Set(entries.map((e) => e.userId))];
+
+      for (const userId of userIds) {
+        if (await presence.claimOffline(userId)) {
+          await announceOffline(userId);
+        }
+      }
+    } catch (error) {
+      console.error("Presence shutdown cleanup failed:", error.message);
+    }
+  };
+
+  return { shutdown };
 };
 
 module.exports = socketHandler;

@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const net = require("net");
+const { withTimeout } = require("../utils/withTimeout");
 
 /**
  * HTTP rate limiting.
@@ -89,28 +90,58 @@ class MemoryStore {
   }
 }
 
+/**
+ * Counters in Redis, shared by every backend instance.
+ *
+ * Redis must never be able to freeze the API. So every call has a time limit,
+ * and after a failure the store "opens its circuit": for a short cooldown it
+ * fails immediately instead of waiting on Redis again for every request. The
+ * limiter then uses its in-memory counters (per instance only, so limits are
+ * looser while Redis is away, but the site keeps working).
+ */
 class RedisStore {
-  constructor(client) {
+  constructor(client, { timeoutMs = 1000, cooldownMs = 10000, now = Date.now } = {}) {
     this.client = client;
+    this.timeoutMs = timeoutMs;
+    this.cooldownMs = cooldownMs;
+    this.now = now;
+    this.downUntil = 0;
   }
 
-  async increment(key, windowMs) {
-    const count = await this.client.incr(key);
-
-    // Set the expiry whenever it is missing (not only when count === 1), so a
-    // crash between INCR and PEXPIRE can never leave a counter that lasts
-    // forever and locks a client out permanently.
-    let resetMs = await this.client.pTTL(key);
-    if (resetMs < 0) {
-      await this.client.pExpire(key, windowMs);
-      resetMs = windowMs;
+  async run(operation) {
+    if (this.now() < this.downUntil) {
+      const error = new Error("Redis unavailable (cooling down)");
+      error.cooldown = true; // already reported when it first failed
+      throw error;
     }
 
-    return { count, resetMs };
+    try {
+      return await withTimeout(operation(), this.timeoutMs, "Redis rate-limit call");
+    } catch (error) {
+      this.downUntil = this.now() + this.cooldownMs;
+      throw error;
+    }
   }
 
-  async decrement(key) {
-    await this.client.decr(key);
+  increment(key, windowMs) {
+    return this.run(async () => {
+      const count = await this.client.incr(key);
+
+      // Set the expiry whenever it is missing (not only when count === 1), so a
+      // crash between INCR and PEXPIRE can never leave a counter that lasts
+      // forever and locks a client out permanently.
+      let resetMs = await this.client.pTTL(key);
+      if (resetMs < 0) {
+        await this.client.pExpire(key, windowMs);
+        resetMs = windowMs;
+      }
+
+      return { count, resetMs };
+    });
+  }
+
+  decrement(key) {
+    return this.run(() => this.client.decr(key));
   }
 }
 
@@ -155,7 +186,10 @@ const createRateLimiter = ({
     try {
       result = await store.increment(key, windowMs);
     } catch (error) {
-      console.error(`Rate limiter store error (${name}), using memory:`, error.message);
+      // During the cool-down every request would repeat the same message.
+      if (!error.cooldown) {
+        console.error(`Rate limiter store error (${name}), using memory:`, error.message);
+      }
       store = memoryStore;
       result = await store.increment(key, windowMs);
     }

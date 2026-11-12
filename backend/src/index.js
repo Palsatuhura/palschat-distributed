@@ -36,6 +36,7 @@ const http = require("http");
 const helmet = require("helmet");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const mongoose = require("mongoose");
 const { createClient } = require("redis");
 const { createAdapter } = require("@socket.io/redis-adapter");
 
@@ -219,14 +220,25 @@ const startServer = async () => {
     const pubClient =
       createClient({
         url: process.env.REDIS_URL,
+        socket: {
+          // Give up on a connection attempt after 10 s instead of waiting
+          // on the operating system, and retry with a growing pause.
+          connectTimeout: 10000,
+          reconnectStrategy: (retries) =>
+            Math.min(retries * 200, 5000),
+        },
       });
 
     const subClient =
       pubClient.duplicate();
 
-    // Dedicated Redis client for presence.
+    // Dedicated Redis client for presence AND the rate limiter. While it is
+    // reconnecting, commands fail at once instead of piling up in a queue,
+    // so a Redis outage slows down features instead of freezing requests.
     const presenceClient =
-      pubClient.duplicate();
+      pubClient.duplicate({
+        disableOfflineQueue: true,
+      });
 
     // ─── Redis error handlers ─────────────────────────────────────────────
 
@@ -297,10 +309,72 @@ const startServer = async () => {
 
     // ─── Socket handlers ──────────────────────────────────────────────────
 
-    socketHandler(
-      io,
-      presenceClient
-    );
+    const presence =
+      socketHandler(
+        io,
+        presenceClient
+      );
+
+    // ─── Graceful shutdown ────────────────────────────────────────────────
+    // On Ctrl+C, a deploy, or a restart: take this server's users out of the
+    // presence list, close connections, then exit. Without this they would
+    // stay "online" until their entries expire.
+
+    let shuttingDown = false;
+
+    const shutdown = async (signal) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+
+      console.log(
+        `\n🛑 ${signal} received, shutting down...`
+      );
+
+      // Never hang forever on a stuck connection.
+      setTimeout(() => {
+        console.error("⏱️  Shutdown took too long, forcing exit");
+        process.exit(1);
+      }, 10000).unref();
+
+      try {
+        await presence.shutdown();
+
+        await new Promise((resolve) =>
+          io.close(resolve)
+        );
+
+        await Promise.allSettled([
+          pubClient.quit(),
+          subClient.quit(),
+          presenceClient.quit(),
+          mongoose.connection.close(),
+        ]);
+
+        console.log("✅ Shutdown complete");
+      } catch (error) {
+        console.error(
+          "Shutdown error:",
+          error.message
+        );
+      }
+    };
+
+    process.once("SIGTERM", async () => {
+      await shutdown("SIGTERM");
+      process.exit(0);
+    });
+
+    process.once("SIGINT", async () => {
+      await shutdown("SIGINT");
+      process.exit(0);
+    });
+
+    // nodemon restarts the app by sending SIGUSR2 and expects it to be sent
+    // back once cleanup is done.
+    process.once("SIGUSR2", async () => {
+      await shutdown("SIGUSR2");
+      process.kill(process.pid, "SIGUSR2");
+    });
 
     // ─── Start HTTP server ────────────────────────────────────────────────
 

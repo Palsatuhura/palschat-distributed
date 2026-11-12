@@ -3,6 +3,28 @@ import socket from "../lib/socket";
 import useAuthStore from "../store/authStore";
 import useChatStore from "../store/chatStore";
 import { endSession } from "../lib/session";
+import api from "../lib/axios";
+
+// Latest messages to re-fetch after a reconnect (to fill the offline gap).
+const RESYNC_PAGE_SIZE = 50;
+
+// While one conversation-list refresh is running, further requests reuse it.
+let refreshingConversations = null;
+
+const refreshConversations = () => {
+  if (!refreshingConversations) {
+    refreshingConversations = api
+      .get("/conversations")
+      .then(({ data }) => {
+        useChatStore.getState().setConversations(data);
+      })
+      .finally(() => {
+        refreshingConversations = null;
+      });
+  }
+
+  return refreshingConversations;
+};
 
 const useSocket = () => {
   const user = useAuthStore((state) => state.user);
@@ -27,6 +49,12 @@ const useSocket = () => {
       token,
     };
 
+    // Logging out turns reconnection off (so the old token is not retried).
+    // Turn it back on for the next login in the same page session.
+    socket.io.opts.reconnection = true;
+
+    let hasConnectedBefore = false;
+
     const joinActiveConversation = () => {
       const { activeConversation } = useChatStore.getState();
 
@@ -44,12 +72,46 @@ const useSocket = () => {
       );
     };
 
+    // After a reconnect, messages sent while we were offline were never
+    // delivered to this browser: fetch the latest ones and merge them in.
+    const resync = async () => {
+      try {
+        await refreshConversations();
+
+        const { activeConversation, mergeMessages } =
+          useChatStore.getState();
+
+        if (!activeConversation?._id) return;
+
+        const { data } = await api.get(
+          `/conversations/${activeConversation._id}/messages`,
+          { params: { limit: RESYNC_PAGE_SIZE } }
+        );
+
+        // The user may have switched conversation while this was loading.
+        if (
+          useChatStore.getState().activeConversation?._id ===
+          activeConversation._id
+        ) {
+          mergeMessages(data);
+        }
+      } catch (error) {
+        console.error("Resync after reconnect failed:", error);
+      }
+    };
+
     const handleConnect = () => {
       console.log(
         `🔐 Secure Socket.IO connection established: ${socket.id}`
       );
 
       joinActiveConversation();
+
+      if (hasConnectedBefore) {
+        resync();
+      }
+
+      hasConnectedBefore = true;
     };
 
     const handleConnectError = (error) => {
@@ -110,7 +172,11 @@ const useSocket = () => {
     const handleReceiveMessage = (message) => {
       const {
         activeConversation,
+        conversations,
       } = useChatStore.getState();
+
+      const currentUserId =
+        useAuthStore.getState().user?._id;
 
       if (
         message.conversation ===
@@ -119,10 +185,34 @@ const useSocket = () => {
         addMessage(message);
       }
 
+      const isKnown = conversations.some(
+        (c) => c._id === message.conversation
+      );
+
+      if (!isKnown) {
+        // First message of a conversation somebody else started (or a group
+        // we were just added to): load the list, then record the message.
+        refreshConversations()
+          .then(() =>
+            updateConversationLastMessage(
+              message.conversation,
+              message,
+              useChatStore.getState().activeConversation?._id,
+              currentUserId
+            )
+          )
+          .catch((error) =>
+            console.error("Could not load new conversation:", error)
+          );
+
+        return;
+      }
+
       updateConversationLastMessage(
         message.conversation,
         message,
-        activeConversation?._id
+        activeConversation?._id,
+        currentUserId
       );
     };
 
