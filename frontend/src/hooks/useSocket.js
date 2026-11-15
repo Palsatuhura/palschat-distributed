@@ -8,6 +8,11 @@ import api from "../lib/axios";
 // Latest messages to re-fetch after a reconnect (to fill the offline gap).
 const RESYNC_PAGE_SIZE = 50;
 
+// A typing indicator that never receives its "stop" (the other person closed
+// the tab, lost signal...) must not stay on screen forever.
+const TYPING_EXPIRY_MS = 6000;
+const typingExpiryTimers = new Map();
+
 // While one conversation-list refresh is running, further requests reuse it.
 let refreshingConversations = null;
 
@@ -183,6 +188,11 @@ const useSocket = () => {
 
       const isFromOther = senderId !== currentUserId;
 
+      // They sent it, so they are no longer "typing".
+      if (isFromOther) {
+        clearUserTyping(message.conversation, senderId);
+      }
+
       if (
         message.conversation ===
         activeConversation?._id
@@ -197,6 +207,11 @@ const useSocket = () => {
         });
 
         // ...and if the person is looking at that chat right now, it is read.
+        // (Temporary diagnostics: the lines starting with 🧾 will be removed.)
+        console.log(
+          `🧾 message from other: chatOpen=${message.conversation === activeConversation?._id}, tab=${document.visibilityState}`
+        );
+
         if (
           message.conversation === activeConversation?._id &&
           document.visibilityState === "visible"
@@ -248,16 +263,30 @@ const useSocket = () => {
         userId,
         userName
       );
+
+      const timerKey = `${conversationId}:${userId}`;
+
+      clearTimeout(typingExpiryTimers.get(timerKey));
+
+      typingExpiryTimers.set(
+        timerKey,
+        setTimeout(() => {
+          typingExpiryTimers.delete(timerKey);
+          clearUserTyping(conversationId, userId);
+        }, TYPING_EXPIRY_MS)
+      );
     };
 
     // Another participant's app received / read our messages: update ticks.
     const handleMessagesRead = ({ conversationId, userId }) => {
+      console.log(`🧾 messages_read from ${userId}`);
       useChatStore
         .getState()
         .applyReceipt(conversationId, userId, "readBy");
     };
 
     const handleMessagesDelivered = ({ conversationId, userId }) => {
+      console.log(`🧾 messages_delivered to ${userId}`);
       useChatStore
         .getState()
         .applyReceipt(conversationId, userId, "deliveredTo");
@@ -267,6 +296,9 @@ const useSocket = () => {
       userId,
       conversationId,
     }) => {
+      clearTimeout(typingExpiryTimers.get(`${conversationId}:${userId}`));
+      typingExpiryTimers.delete(`${conversationId}:${userId}`);
+
       clearUserTyping(
         conversationId,
         userId

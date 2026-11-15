@@ -38,6 +38,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
   const activeConversation = useChatStore((s) => s.activeConversation);
   const onlineUsers = useChatStore((s) => s.onlineUsers);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
+  const typingUsers = useChatStore((s) => s.typingUsers);
   const setUsers = useChatStore((s) => s.setUsers);
   const setConversations = useChatStore((s) => s.setConversations);
   const addOrUpdateConversation = useChatStore((s) => s.addOrUpdateConversation);
@@ -108,6 +109,10 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
   };
 
   // Get last message preview text
+  // Is anybody other than me typing in this conversation?
+  const isSomeoneTyping = (conversationId) =>
+    Object.keys(typingUsers[conversationId] || {}).some((id) => id !== user?._id);
+
   const getLastMessagePreview = (conv) => {
     if (!conv.lastMessage) return "No messages yet";
     const msg = conv.lastMessage;
@@ -284,7 +289,11 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                           </span>
                         </div>
                         <div className="flex items-center justify-between mt-0.5">
-                          <p className="text-xs text-gray-500 truncate">{getLastMessagePreview(conv)}</p>
+                          {isSomeoneTyping(conv._id) ? (
+                            <p className="text-xs text-green-600 italic truncate">typing...</p>
+                          ) : (
+                            <p className="text-xs text-gray-500 truncate">{getLastMessagePreview(conv)}</p>
+                          )}
                           {unread > 0 && (
                             <span className="ml-1 flex-shrink-0 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-medium">
                               {unread > 9 ? "9+" : unread}

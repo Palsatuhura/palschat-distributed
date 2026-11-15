@@ -54,11 +54,11 @@ const readPresenceConfig = (env = process.env) => {
     // After a user's last socket closes, wait this long before announcing
     // "offline": a page refresh reconnects within a second or two.
     graceMs: int(env.PRESENCE_GRACE_MS, 3000, 0),
-    commandTimeoutMs: int(env.PRESENCE_COMMAND_TIMEOUT_MS, 1500, 100),
+    commandTimeoutMs: int(env.PRESENCE_COMMAND_TIMEOUT_MS, 3000, 100),
   };
 };
 
-const createPresence = ({ redis, ttlMs, commandTimeoutMs = 1500, now = Date.now }) => {
+const createPresence = ({ redis, ttlMs, commandTimeoutMs = 3000, now = Date.now }) => {
   // Every Redis call is time-limited so a stalled connection cannot hang us.
   const run = (promise) => withTimeout(promise, commandTimeoutMs, "Redis presence call");
 

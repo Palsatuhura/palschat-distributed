@@ -78,7 +78,9 @@ const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => 
             {/* Read receipt ticks (only for own messages) */}
             {isOwnMessage && (
               <svg
-                className={`w-3.5 h-3.5 ${isRead ? "text-white" : "text-blue-300"}`}
+                className={`w-3.5 h-3.5 ${
+                  isRead ? "text-green-400" : isDelivered ? "text-blue-100" : "text-blue-300/70"
+                }`}
                 fill="currentColor"
                 viewBox="0 0 16 16"
                 role="img"
@@ -86,7 +88,7 @@ const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => 
               >
                 <title>{receiptLabel}</title>
                 {isDelivered ? (
-                  // Double tick (delivered: faint, read: bright white)
+                  // Double tick (delivered: white-ish, read: green)
                   <path d="M12.354 4.354a.5.5 0 0 0-.708-.708L5 11.293 1.854 8.146a.5.5 0 1 0-.708.708l3.5 3.5a.5.5 0 0 0 .708 0l7-7zm-4.208 7-.896-.897.707-.707.543.543 6.646-6.647a.5.5 0 0 1 .708.708l-7 7a.5.5 0 0 1-.708 0z" />
                 ) : (
                   // Single tick (sent)

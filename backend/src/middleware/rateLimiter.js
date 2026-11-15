@@ -91,6 +91,27 @@ class MemoryStore {
 }
 
 /**
+ * One atomic step inside Redis: count this request, and make sure the counter
+ * has an expiry. Doing it as a single script means ONE network round trip.
+ * With a Redis server on another continent each round trip can cost 300 ms or
+ * more, so the old three separate commands (INCR, PTTL, PEXPIRE) took about a
+ * second and kept running into the time limit.
+ *
+ * The expiry is set whenever it is missing (not only on the first hit), so a
+ * crash between the steps can never leave a counter that lasts forever and
+ * locks a client out permanently.
+ */
+const INCREMENT_SCRIPT = `
+local count = redis.call('INCR', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return { count, ttl }
+`;
+
+/**
  * Counters in Redis, shared by every backend instance.
  *
  * Redis must never be able to freeze the API. So every call has a time limit,
@@ -100,7 +121,7 @@ class MemoryStore {
  * looser while Redis is away, but the site keeps working).
  */
 class RedisStore {
-  constructor(client, { timeoutMs = 1000, cooldownMs = 10000, now = Date.now } = {}) {
+  constructor(client, { timeoutMs = 2500, cooldownMs = 10000, now = Date.now } = {}) {
     this.client = client;
     this.timeoutMs = timeoutMs;
     this.cooldownMs = cooldownMs;
@@ -125,18 +146,12 @@ class RedisStore {
 
   increment(key, windowMs) {
     return this.run(async () => {
-      const count = await this.client.incr(key);
+      const [count, resetMs] = await this.client.eval(INCREMENT_SCRIPT, {
+        keys: [key],
+        arguments: [String(windowMs)],
+      });
 
-      // Set the expiry whenever it is missing (not only when count === 1), so a
-      // crash between INCR and PEXPIRE can never leave a counter that lasts
-      // forever and locks a client out permanently.
-      let resetMs = await this.client.pTTL(key);
-      if (resetMs < 0) {
-        await this.client.pExpire(key, windowMs);
-        resetMs = windowMs;
-      }
-
-      return { count, resetMs };
+      return { count: Number(count), resetMs: Number(resetMs) };
     });
   }
 
@@ -273,6 +288,7 @@ module.exports = {
   hashForKey,
   MemoryStore,
   RedisStore,
+  INCREMENT_SCRIPT,
   loginIpLimiter,
   loginAccountLimiter,
   registerLimiter,

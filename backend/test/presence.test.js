@@ -247,7 +247,7 @@ test("presence calls time out instead of hanging when Redis stalls", async () =>
 // ── RedisStore: timeout and cool-down ────────────────────────────────────
 
 test("RedisStore gives up on a hanging Redis instead of waiting forever", async () => {
-  const hanging = { incr: () => new Promise(() => {}), pTTL: async () => 1, pExpire: async () => 1, decr: async () => 1 };
+  const hanging = { eval: () => new Promise(() => {}), decr: async () => 1 };
   const store = new RedisStore(hanging, { timeoutMs: 30 });
 
   await assert.rejects(store.increment("k", 1000), /timed out/);
@@ -257,12 +257,10 @@ test("RedisStore skips Redis during the cool-down, then tries again", async () =
   let calls = 0;
   let clock = 1000;
   const failing = {
-    incr: async () => {
+    eval: async () => {
       calls += 1;
       throw new Error("down");
     },
-    pTTL: async () => 1,
-    pExpire: async () => 1,
   };
   const store = new RedisStore(failing, { timeoutMs: 30, cooldownMs: 5000, now: () => clock });
 
@@ -278,7 +276,7 @@ test("RedisStore skips Redis during the cool-down, then tries again", async () =
 });
 
 test("the limiter keeps working (using memory) when Redis hangs", async () => {
-  const hanging = { incr: () => new Promise(() => {}), pTTL: async () => 1, pExpire: async () => 1, decr: async () => 1 };
+  const hanging = { eval: () => new Promise(() => {}), decr: async () => 1 };
   const store = new RedisStore(hanging, { timeoutMs: 30 });
 
   const limiter = createRateLimiter({ name: "t", windowMs: 60000, max: 2, store });

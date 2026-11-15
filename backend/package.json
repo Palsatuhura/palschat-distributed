@@ -10,7 +10,8 @@
     "check:authz": "node scripts/authz-check.js",
     "check:hardening": "node scripts/hardening-check.js",
     "check:messaging": "node scripts/messaging-check.js",
-    "check:presence": "node scripts/presence-check.js"
+    "check:presence": "node scripts/presence-check.js",
+    "check:redis": "node scripts/redis-check.js"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",

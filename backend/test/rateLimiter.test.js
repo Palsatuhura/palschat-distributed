@@ -8,6 +8,7 @@ const {
   hashForKey,
   MemoryStore,
   RedisStore,
+  INCREMENT_SCRIPT,
 } = require("../src/middleware/rateLimiter");
 const { createEventLimiter } = require("../src/utils/eventLimiter");
 
@@ -109,32 +110,35 @@ test("MemoryStore.decrement never goes below zero", async () => {
 
 // ─── RedisStore ─────────────────────────────────────────────────────────────
 
-test("RedisStore sets an expiry when the key has none, even if count > 1", async () => {
+test("RedisStore counts with ONE Redis call (one network round trip)", async () => {
   const calls = [];
   const client = {
-    incr: async () => 5,
-    pTTL: async () => -1, // key exists without expiry (earlier crash)
-    pExpire: async (key, ms) => calls.push(["pExpire", key, ms]),
+    eval: async (script, options) => {
+      calls.push({ script, options });
+      return [5, 400];
+    },
+    incr: async () => assert.fail("must not make separate INCR calls"),
+    pTTL: async () => assert.fail("must not make separate PTTL calls"),
+    pExpire: async () => assert.fail("must not make separate PEXPIRE calls"),
   };
 
   const result = await new RedisStore(client).increment("k", 900);
 
-  assert.deepEqual(calls, [["pExpire", "k", 900]]);
-  assert.deepEqual(result, { count: 5, resetMs: 900 });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].options, { keys: ["k"], arguments: ["900"] });
+  assert.deepEqual(result, { count: 5, resetMs: 400 });
 });
 
-test("RedisStore keeps an existing expiry untouched", async () => {
-  const calls = [];
-  const client = {
-    incr: async () => 2,
-    pTTL: async () => 400,
-    pExpire: async () => calls.push("pExpire"),
-  };
+test("the Redis script counts, and sets an expiry whenever one is missing", () => {
+  assert.match(INCREMENT_SCRIPT, /INCR/);
+  assert.match(INCREMENT_SCRIPT, /PTTL/);
+  assert.match(INCREMENT_SCRIPT, /if ttl < 0 then/, "expiry is set whenever missing, not only on the first hit");
+  assert.match(INCREMENT_SCRIPT, /PEXPIRE/);
+});
 
-  const result = await new RedisStore(client).increment("k", 900);
-
-  assert.equal(calls.length, 0);
-  assert.deepEqual(result, { count: 2, resetMs: 400 });
+test("RedisStore returns numbers even if Redis replies with strings", async () => {
+  const client = { eval: async () => ["3", "250"] };
+  assert.deepEqual(await new RedisStore(client).increment("k", 900), { count: 3, resetMs: 250 });
 });
 
 // ─── createRateLimiter ──────────────────────────────────────────────────────

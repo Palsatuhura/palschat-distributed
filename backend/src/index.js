@@ -339,9 +339,19 @@ const startServer = async () => {
       try {
         await presence.shutdown();
 
-        await new Promise((resolve) =>
+        // io.close() waits for browsers' idle keep-alive HTTP connections,
+        // which can take a long time. Drop them, and never wait more than
+        // 3 seconds for the rest.
+        const closed = new Promise((resolve) =>
           io.close(resolve)
         );
+
+        httpServer.closeAllConnections?.();
+
+        await Promise.race([
+          closed,
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
 
         await Promise.allSettled([
           pubClient.quit(),
