@@ -12,7 +12,10 @@ import { io } from "socket.io-client";
 const socket = io(import.meta.env.VITE_SOCKET_URL, {
   autoConnect: false,
 
-  transports: ["websocket", "polling"],
+  // WebSocket only. With several servers behind a load balancer, the
+  // long-polling fallback needs sticky sessions (every request of one client
+  // must reach the same server). A WebSocket is one connection, so it does not.
+  transports: ["websocket"],
 
   reconnection: true,
   reconnectionAttempts: Infinity,
