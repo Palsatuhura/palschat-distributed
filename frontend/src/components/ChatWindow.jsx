@@ -385,7 +385,7 @@ const ChatWindow = ({ onMenuClick }) => {
   // ─── Empty state ───────────────────────────────────────────────────────
   if (!activeConversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 text-center px-4">
+      <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-gray-50 text-center px-4">
         <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
           <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -396,13 +396,6 @@ const ChatWindow = ({ onMenuClick }) => {
         <p className="text-gray-400 text-sm mt-1 max-w-xs">
           Select a conversation from the sidebar or go to People to start a new chat.
         </p>
-        {/* Mobile: show menu button */}
-        <button
-          onClick={onMenuClick}
-          className="mt-6 md:hidden px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium"
-        >
-          Open Contacts
-        </button>
       </div>
     );
   }
@@ -411,13 +404,14 @@ const ChatWindow = ({ onMenuClick }) => {
     <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
       {/* ── Header ── */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shadow-sm">
-        {/* Mobile menu button */}
+        {/* Mobile back button: returns to the chat list */}
         <button
           onClick={onMenuClick}
-          className="md:hidden p-2 hover:bg-gray-100 rounded-full text-gray-500"
+          aria-label="Back to chats"
+          className="md:hidden p-2 -ml-2 hover:bg-gray-100 rounded-full text-gray-500"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
 

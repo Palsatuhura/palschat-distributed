@@ -42,6 +42,14 @@ const useChatStore = create((set, get) => ({
   // ─── User Actions ──────────────────────────────────────────────────────
   setUsers: (users) => set({ users }),
 
+  /** Adds one user to the People list (ignored if already present). */
+  addUser: (newUser) =>
+    set((state) =>
+      state.users.some((u) => u._id === newUser._id)
+        ? state
+        : { users: [...state.users, newUser] }
+    ),
+
   // ─── Conversation Actions ──────────────────────────────────────────────
   setConversations: (conversations) => set({ conversations }),
 

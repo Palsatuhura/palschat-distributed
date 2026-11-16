@@ -167,7 +167,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
       {/* Sidebar panel */}
       <aside className={`
         fixed md:relative z-30 md:z-auto
-        w-80 h-full flex flex-col bg-white border-r border-gray-200
+        w-full md:w-80 h-full flex flex-col bg-white border-r border-gray-200
         transition-transform duration-300 ease-in-out
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
       `}>

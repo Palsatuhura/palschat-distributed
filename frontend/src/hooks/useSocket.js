@@ -158,6 +158,13 @@ const useSocket = () => {
       setOnlineUsers(userIds);
     };
 
+    const handleUserRegistered = (newUser) => {
+      const myId = useAuthStore.getState().user?._id;
+      if (newUser && newUser._id && newUser._id !== myId) {
+        useChatStore.getState().addUser(newUser);
+      }
+    };
+
     const handleUserOnline = ({ userId }) => {
       console.log(
         `🟢 User online: ${userId}`
@@ -331,6 +338,11 @@ const useSocket = () => {
     );
 
     socket.on(
+      "user_registered",
+      handleUserRegistered
+    );
+
+    socket.on(
       "user_online",
       handleUserOnline
     );
@@ -392,6 +404,11 @@ const useSocket = () => {
       socket.off(
         "online_users",
         handleOnlineUsers
+      );
+
+      socket.off(
+        "user_registered",
+        handleUserRegistered
       );
 
       socket.off(

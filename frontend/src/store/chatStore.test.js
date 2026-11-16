@@ -123,3 +123,11 @@ test("applyReceipt: delivery does not mark as read, and repeats change nothing",
   state().applyReceipt("c1", "bob", "deliveredTo");
   assert.equal(state().messages, before, "no change, no new array");
 });
+
+test("addUser adds a new person once and ignores duplicates", () => {
+  reset();
+  state().setUsers([{ _id: "u1", name: "A" }]);
+  state().addUser({ _id: "u2", name: "B" });
+  state().addUser({ _id: "u2", name: "B" });
+  assert.deepEqual(state().users.map((u) => u._id), ["u1", "u2"]);
+});

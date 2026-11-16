@@ -65,6 +65,14 @@ const register = async (req, res) => {
 
     const token = signToken(user._id);
 
+    // Tell everyone who is connected, on any server, so their People list
+    // updates without a refresh. A failure here must never fail the signup.
+    try {
+      req.app.get("io")?.emit("user_registered", publicUser(user));
+    } catch {
+      /* ignore */
+    }
+
     res.status(201).json({
       message: "User registered successfully",
       token,

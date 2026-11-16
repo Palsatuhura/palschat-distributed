@@ -103,6 +103,10 @@ const io = new Server(httpServer, {
   maxHttpBufferSize: 100 * 1024,
 });
 
+// Controllers reach the socket server through app.get("io"), for example to
+// tell every connected client (on every server) that a new user has joined.
+app.set("io", io);
+
 // ─── Express Middleware ────────────────────────────────────────────────────
 
 // The API only accepts small JSON bodies (messages are capped at 2000
