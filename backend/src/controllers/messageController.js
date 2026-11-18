@@ -61,7 +61,7 @@ const getMessages = async (req, res) => {
     // Newest first so that "limit" keeps the LATEST messages, then flip the
     // page to oldest-first for display.
     const newestFirst = await Message.find({ conversation: conversationId, ...olderThan })
-      .populate("sender", "name avatar")
+      .populate("sender", "name")
       .sort({ createdAt: -1, _id: -1 })
       .limit(limit);
 

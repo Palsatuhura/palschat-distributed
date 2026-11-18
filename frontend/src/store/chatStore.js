@@ -42,6 +42,23 @@ const useChatStore = create((set, get) => ({
   // ─── User Actions ──────────────────────────────────────────────────────
   setUsers: (users) => set({ users }),
 
+  /**
+   * A person changed their picture or about line. Update every place that
+   * holds a copy of their profile: the People list and the members of every
+   * conversation (including the open one).
+   */
+  updateUserProfile: (userId, patch) =>
+    set((state) => {
+      const apply = (u) => (u && u._id === userId ? { ...u, ...patch } : u);
+      const mapConv = (c) =>
+        c && c.participants ? { ...c, participants: c.participants.map(apply) } : c;
+      return {
+        users: state.users.map(apply),
+        conversations: state.conversations.map(mapConv),
+        activeConversation: mapConv(state.activeConversation),
+      };
+    }),
+
   /** Adds one user to the People list (ignored if already present). */
   addUser: (newUser) =>
     set((state) =>

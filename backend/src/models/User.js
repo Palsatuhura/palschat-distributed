@@ -34,6 +34,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // Short status line shown on the profile
+    about: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [140, "About cannot exceed 140 characters"],
+    },
     isOnline: {
       type: Boolean,
       default: false,

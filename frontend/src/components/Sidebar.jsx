@@ -5,6 +5,7 @@ import useAuthStore from "../store/authStore";
 import useChatStore from "../store/chatStore";
 import UserAvatar from "./UserAvatar";
 import CreateGroupModal from "./CreateGroupModal";
+import ProfileModal from "./ProfileModal";
 import socket from "../lib/socket";
 
 /**
@@ -48,6 +49,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("chats"); // "chats" | "people"
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingConvs, setIsLoadingConvs] = useState(false);
 
@@ -174,11 +176,18 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <UserAvatar user={user} isOnline={true} size="md" />
-            <div>
-              <p className="font-semibold text-gray-900 text-sm leading-tight">{user?.name}</p>
-              <p className="text-xs text-green-500 font-medium">Online</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowProfile(true)}
+              title="Edit your profile"
+              className="flex items-center gap-3 text-left rounded-lg hover:bg-gray-50 -m-1 p-1"
+            >
+              <UserAvatar user={user} isOnline={true} size="md" />
+              <div>
+                <p className="font-semibold text-gray-900 text-sm leading-tight">{user?.name}</p>
+                <p className="text-xs text-green-500 font-medium">Online</p>
+              </div>
+            </button>
           </div>
           <div className="flex items-center gap-1">
             {/* New group button */}
@@ -341,6 +350,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
 
       {/* Group creation modal */}
       {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} />}
+      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
     </>
   );
 };

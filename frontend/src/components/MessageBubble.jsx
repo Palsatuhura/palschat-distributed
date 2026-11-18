@@ -1,5 +1,6 @@
 import { format, isToday, isYesterday } from "date-fns";
 import useAuthStore from "../store/authStore";
+import useChatStore from "../store/chatStore";
 import UserAvatar from "./UserAvatar";
 
 /**
@@ -28,6 +29,12 @@ const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => 
   const { user } = useAuthStore();
   const isOwnMessage = message.sender?._id === user?._id;
 
+  // Messages carry only the sender's name; the picture comes from the
+  // People list so it is never repeated in every message.
+  const senderProfile =
+    useChatStore((s) => s.users.find((u) => u._id === message.sender?._id)) ||
+    message.sender;
+
   // Group consecutive messages from the same sender
   const isSameSenderAsPrevious =
     previousMessage && previousMessage.sender?._id === message.sender?._id;
@@ -47,7 +54,7 @@ const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => 
       {/* Avatar — only show for received messages, and only when sender changes */}
       {!isOwnMessage && (
         <div className={`flex-shrink-0 ${isSameSenderAsPrevious ? "opacity-0" : ""}`}>
-          <UserAvatar user={message.sender} size="sm" showStatus={false} />
+          <UserAvatar user={senderProfile} size="sm" showStatus={false} />
         </div>
       )}
 

@@ -578,7 +578,7 @@ const socketHandler = (io, presenceClient) => {
 
           await message.populate(
             "sender",
-            "name avatar"
+            "name"
           );
 
           await Conversation.findByIdAndUpdate(

@@ -24,6 +24,7 @@ const publicUser = (user) => ({
   name: user.name,
   email: user.email,
   avatar: user.avatar,
+  about: user.about,
   isOnline: user.isOnline,
 });
 

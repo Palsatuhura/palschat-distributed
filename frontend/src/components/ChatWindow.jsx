@@ -5,6 +5,7 @@ import useAuthStore from "../store/authStore";
 import useChatStore from "../store/chatStore";
 import MessageBubble from "./MessageBubble";
 import UserAvatar from "./UserAvatar";
+import InfoPanel from "./InfoPanel";
 
 /**
  * ChatWindow
@@ -51,6 +52,7 @@ const ChatWindow = ({ onMenuClick }) => {
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   // Ref to the messages container for auto-scroll
   const messagesEndRef = useRef(null);
@@ -415,6 +417,13 @@ const ChatWindow = ({ onMenuClick }) => {
           </svg>
         </button>
 
+        {/* Avatar + name: click to see contact or group info */}
+        <button
+          type="button"
+          onClick={() => setShowInfo(true)}
+          aria-label={activeConversation.isGroup ? "Group info" : "Contact info"}
+          className="flex flex-1 min-w-0 items-center gap-3 text-left rounded-lg hover:bg-gray-50 -my-1 py-1 px-1"
+        >
         {/* Avatar */}
         {activeConversation.isGroup ? (
           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -439,6 +448,7 @@ const ChatWindow = ({ onMenuClick }) => {
             </p>
           )}
         </div>
+        </button>
       </div>
 
       {/* ── Messages area ── */}
@@ -540,6 +550,13 @@ const ChatWindow = ({ onMenuClick }) => {
           <kbd className="px-1 py-0.5 bg-gray-200 rounded text-[10px]">Shift+Enter</kbd> for newline
         </p>
       </div>
+
+      {showInfo && (
+        <InfoPanel
+          conversation={activeConversation}
+          onClose={() => setShowInfo(false)}
+        />
+      )}
     </div>
   );
 };

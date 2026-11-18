@@ -7,7 +7,7 @@
 
 // Fields of another user that are safe to show to any authenticated user.
 // Deliberately excludes email, password and timestamps.
-const PUBLIC_USER_FIELDS = "name avatar isOnline lastSeen";
+const PUBLIC_USER_FIELDS = "name avatar about isOnline lastSeen";
 
 // Must match the maxlength on Message.text in models/Message.js.
 const MAX_MESSAGE_LENGTH = 2000;
@@ -25,6 +25,11 @@ const MAX_PASSWORD_BYTES = 72;
 // Login accepts older, shorter passwords but still bounds the input size.
 const MAX_LOGIN_PASSWORD_LENGTH = 128;
 const MIN_NAME_LENGTH = 2;
+
+// Profile: the picture is a small data URL (the browser shrinks it to about
+// 128x128 before upload); "about" is a short status line.
+const MAX_AVATAR_LENGTH = 40000;
+const MAX_ABOUT_LENGTH = 140;
 const MAX_NAME_LENGTH = 50;
 
 // Per-socket event budgets (see utils/eventLimiter.js).
@@ -46,4 +51,6 @@ module.exports = {
   MAX_LOGIN_PASSWORD_LENGTH,
   MIN_NAME_LENGTH,
   MAX_NAME_LENGTH,
+  MAX_AVATAR_LENGTH,
+  MAX_ABOUT_LENGTH,
 };

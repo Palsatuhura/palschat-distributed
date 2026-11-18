@@ -165,6 +165,15 @@ const useSocket = () => {
       }
     };
 
+    const handleUserUpdated = (profile) => {
+      if (!profile || !profile._id) return;
+      const patch = { avatar: profile.avatar, about: profile.about };
+      useChatStore.getState().updateUserProfile(profile._id, patch);
+      if (profile._id === useAuthStore.getState().user?._id) {
+        useAuthStore.getState().updateUser(patch);
+      }
+    };
+
     const handleUserOnline = ({ userId }) => {
       console.log(
         `🟢 User online: ${userId}`
@@ -343,6 +352,11 @@ const useSocket = () => {
     );
 
     socket.on(
+      "user_updated",
+      handleUserUpdated
+    );
+
+    socket.on(
       "user_online",
       handleUserOnline
     );
@@ -409,6 +423,11 @@ const useSocket = () => {
       socket.off(
         "user_registered",
         handleUserRegistered
+      );
+
+      socket.off(
+        "user_updated",
+        handleUserUpdated
       );
 
       socket.off(

@@ -131,3 +131,17 @@ test("addUser adds a new person once and ignores duplicates", () => {
   state().addUser({ _id: "u2", name: "B" });
   assert.deepEqual(state().users.map((u) => u._id), ["u1", "u2"]);
 });
+
+test("updateUserProfile changes the person everywhere they appear", () => {
+  reset();
+  const bob = { _id: "u2", name: "Bob", avatar: "", about: "" };
+  const conv = { _id: "c1", isGroup: false, participants: [{ _id: "u1", name: "Me" }, bob] };
+  state().setUsers([bob]);
+  state().setConversations([conv]);
+  state().setActiveConversation(conv);
+  state().updateUserProfile("u2", { avatar: "data:image/jpeg;base64,AAAA", about: "Busy" });
+  assert.equal(state().users[0].about, "Busy");
+  assert.equal(state().conversations[0].participants[1].avatar, "data:image/jpeg;base64,AAAA");
+  assert.equal(state().activeConversation.participants[1].about, "Busy");
+  assert.equal(state().users[0].name, "Bob");
+});

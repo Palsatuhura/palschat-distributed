@@ -34,6 +34,7 @@ const sizeClasses = {
   sm: { avatar: "w-8 h-8 text-xs", dot: "w-2.5 h-2.5 bottom-0 right-0" },
   md: { avatar: "w-10 h-10 text-sm", dot: "w-3 h-3 bottom-0 right-0" },
   lg: { avatar: "w-12 h-12 text-base", dot: "w-3.5 h-3.5 bottom-0.5 right-0.5" },
+  xl: { avatar: "w-24 h-24 text-2xl", dot: "w-4 h-4 bottom-1 right-1" },
 };
 
 const UserAvatar = ({ user, isOnline = false, size = "md", showStatus = true }) => {

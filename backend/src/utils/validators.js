@@ -5,6 +5,8 @@ const {
   MAX_PASSWORD_BYTES,
   MIN_NAME_LENGTH,
   MAX_NAME_LENGTH,
+  MAX_AVATAR_LENGTH,
+  MAX_ABOUT_LENGTH,
 } = require("./constants");
 
 // Deliberately simple: the real proof of ownership is sending mail to it.
@@ -128,6 +130,58 @@ const validateName = (value) => {
 };
 
 /**
+ * Validate a profile picture. The picture is a data URL such as
+ * "data:image/jpeg;base64,/9j/4AAQ...". An empty string removes the picture.
+ * Returns { avatar } or { error }.
+ *
+ * Besides the declared type, the first bytes of the decoded data must match
+ * a real JPEG, PNG or WebP file, so arbitrary data cannot be stored as an
+ * "image". The browser only ever puts it in an <img> tag.
+ */
+const AVATAR_PATTERN = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
+
+const validateAvatar = (value) => {
+  if (typeof value !== "string") return { error: "Picture must be a string" };
+  if (value === "") return { avatar: "" };
+  if (value.length > MAX_AVATAR_LENGTH) {
+    return { error: "Picture is too large. Choose a smaller image." };
+  }
+
+  const match = AVATAR_PATTERN.exec(value);
+  if (!match) return { error: "Picture must be a JPEG, PNG or WebP image" };
+
+  const head = Buffer.from(match[2].slice(0, 24), "base64");
+  const isJpeg = head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+  const isPng =
+    head.length >= 4 && head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+  const isWebp =
+    head.length >= 12 &&
+    head.toString("ascii", 0, 4) === "RIFF" &&
+    head.toString("ascii", 8, 12) === "WEBP";
+  const declared = match[1];
+
+  const ok =
+    (declared === "jpeg" && isJpeg) ||
+    (declared === "png" && isPng) ||
+    (declared === "webp" && isWebp);
+  if (!ok) return { error: "Picture data is not a valid image" };
+
+  return { avatar: value };
+};
+
+/**
+ * Validate the "about" line. Returns { about } (trimmed) or { error }.
+ */
+const validateAbout = (value) => {
+  if (typeof value !== "string") return { error: "About must be a string" };
+  const about = value.trim();
+  if (about.length > MAX_ABOUT_LENGTH) {
+    return { error: `About cannot exceed ${MAX_ABOUT_LENGTH} characters` };
+  }
+  return { about };
+};
+
+/**
  * Stable key for a one-to-one conversation: the two user ids, lower-cased and
  * sorted, so (A,B) and (B,A) give the same key. A unique database index on it
  * stops two simultaneous requests from creating two DMs for the same pair.
@@ -136,6 +190,8 @@ const dmKeyFor = (idA, idB) =>
   [String(idA).toLowerCase(), String(idB).toLowerCase()].sort().join(":");
 
 module.exports = {
+  validateAvatar,
+  validateAbout,
   dmKeyFor,
   isValidObjectId,
   normalizeParticipantIds,

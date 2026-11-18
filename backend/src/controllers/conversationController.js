@@ -25,7 +25,7 @@ const getConversations = async (req, res) => {
       .populate("participants", PUBLIC_USER_FIELDS)
       .populate({
         path: "lastMessage",
-        populate: { path: "sender", select: "name avatar" },
+        populate: { path: "sender", select: "name" },
       })
       .sort({ updatedAt: -1 });
 
@@ -118,7 +118,7 @@ const createOrGetConversation = async (req, res) => {
         .populate("participants", PUBLIC_USER_FIELDS)
         .populate({
           path: "lastMessage",
-          populate: { path: "sender", select: "name avatar" },
+          populate: { path: "sender", select: "name" },
         });
 
     const existingConversation = await findExistingDm();
