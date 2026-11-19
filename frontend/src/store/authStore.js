@@ -28,6 +28,11 @@ const useAuthStore = create(
       login: (user, token) => set({ user, token }),
 
       /**
+       * Replaces the token after a quiet renewal (same session, later expiry).
+       */
+      setToken: (token) => set({ token }),
+
+      /**
        * Clears authentication state.
        * The socket connection is disconnected separately in useSocket hook.
        */

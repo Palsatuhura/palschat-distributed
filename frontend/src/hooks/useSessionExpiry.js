@@ -1,7 +1,11 @@
 import { useEffect } from "react";
 import useAuthStore from "../store/authStore";
 import { endSession } from "../lib/session";
-import { MAX_TIMEOUT_MS, msUntilExpiry } from "../lib/tokenExpiry";
+import { MAX_TIMEOUT_MS, msUntilExpiry, msUntilRenewal } from "../lib/tokenExpiry";
+import { renewSession } from "../lib/renew";
+
+// If a renewal fails (for example no network), try again after this long.
+const RENEW_RETRY_MS = 60 * 1000;
 
 /**
  * Signs the user out the moment their login token expires.
@@ -12,6 +16,10 @@ import { MAX_TIMEOUT_MS, msUntilExpiry } from "../lib/tokenExpiry";
  * - After sleep or a background tab: browsers delay timers for sleeping
  *   computers and hidden tabs, so the check also runs when the tab becomes
  *   visible or focused again.
+ *
+ * - Renewal: once a token is half used up, a fresh one is requested for the
+ *   same session, so someone who keeps using the app stays signed in (up to
+ *   the session's own limit, set on the server).
  *
  * The server enforces expiry independently; this only makes the UI react
  * promptly and with a clear message.
@@ -37,9 +45,21 @@ const useSessionExpiry = () => {
         return;
       }
 
+      // Wait for the renewal point, or the expiry, whichever comes first.
+      let wait = remaining;
+      const untilRenewal = msUntilRenewal(token);
+      if (untilRenewal !== null) {
+        if (untilRenewal <= 0) {
+          renewSession();
+          wait = Math.min(remaining, RENEW_RETRY_MS);
+        } else {
+          wait = Math.min(remaining, untilRenewal);
+        }
+      }
+
       // Re-check after at most MAX_TIMEOUT_MS so long lifetimes never
       // overflow setTimeout.
-      timer = setTimeout(check, Math.min(remaining, MAX_TIMEOUT_MS));
+      timer = setTimeout(check, Math.min(wait, MAX_TIMEOUT_MS));
     };
 
     const onWake = () => {

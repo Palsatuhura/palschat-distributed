@@ -1,6 +1,7 @@
 import axios from "axios";
 import useAuthStore from "../store/authStore";
 import { endSession } from "./session";
+import { isSessionProblemCode } from "./sessionNotice";
 
 /**
  * Axios instance pre-configured with the backend API base URL.
@@ -35,10 +36,26 @@ api.interceptors.response.use(
     // erase the error message before the user could read it.
     const isAuthRequest = /\/auth\/(login|register)$/.test(error.config?.url || "");
 
-    if (error.response?.status === 401 && !isAuthRequest) {
+    // Requests that handle a 401 themselves (the logout call) opt out.
+    //
+    // Only a 401 that carries one of the server's session codes means "your
+    // login is no longer good". A 401 without a code is something else, for
+    // example a wrong CURRENT PASSWORD when changing the password, and must
+    // not sign the user out.
+    const code = error.response?.data?.code;
+    const isSessionProblem = isSessionProblemCode(code);
+
+    if (
+      error.response?.status === 401 &&
+      isSessionProblem &&
+      !isAuthRequest &&
+      !error.config?.skipAuthRedirect
+    ) {
       // Session expired or token invalid: clear auth state and go to login,
       // telling the user which of the two it was.
-      endSession(error.response.data?.code === "TOKEN_EXPIRED" ? "expired" : "invalid");
+      endSession(
+        code === "TOKEN_EXPIRED" ? "expired" : code === "SESSION_ENDED" ? "ended" : "invalid"
+      );
     }
     return Promise.reject(error);
   }

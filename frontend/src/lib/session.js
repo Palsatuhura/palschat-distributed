@@ -14,7 +14,7 @@ let ending = false;
  * previous user's conversations and messages, which matters on a shared
  * computer.
  *
- * @param {"expired" | "invalid"} reason shown on the login page
+ * @param {"expired" | "invalid" | "ended"} reason shown on the login page
  */
 export const endSession = (reason = "expired") => {
   // Several things can notice expiry at the same moment (REST call, socket,

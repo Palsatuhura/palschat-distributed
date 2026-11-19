@@ -3,12 +3,13 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ChatPage from "./pages/ChatPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRoute from "./components/PublicRoute";
 
 /**
  * App — Root Component
  * Sets up React Router with three routes:
- *   /login     — public login page
- *   /register  — public registration page
+ *   /login     — public login page (signed-in users go to the chat)
+ *   /register  — public registration page (same)
  *   /          — protected chat layout (redirects to login if not auth'd)
  *   *          — catch-all redirects to /
  */
@@ -16,8 +17,22 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <LoginPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicRoute>
+              <RegisterPage />
+            </PublicRoute>
+          }
+        />
         <Route
           path="/"
           element={

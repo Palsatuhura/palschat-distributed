@@ -32,8 +32,11 @@ const refreshConversations = () => {
 };
 
 const useSocket = () => {
-  const user = useAuthStore((state) => state.user);
-  const token = useAuthStore((state) => state.token);
+  // Only the id and "is there a token" matter here. Watching the whole user
+  // or the token itself would reconnect the chat on every profile edit and
+  // every quiet token renewal.
+  const userId = useAuthStore((state) => state.user?._id);
+  const hasToken = useAuthStore((state) => Boolean(state.token));
 
   const setOnlineUsers = useChatStore((state) => state.setOnlineUsers);
   const setUserOnline = useChatStore((state) => state.setUserOnline);
@@ -46,12 +49,12 @@ const useSocket = () => {
   const clearUserTyping = useChatStore((state) => state.clearUserTyping);
 
   useEffect(() => {
-    if (!user || !token) {
+    if (!userId || !hasToken) {
       return;
     }
 
     socket.auth = {
-      token,
+      token: useAuthStore.getState().token,
     };
 
     // Logging out turns reconnection off (so the old token is not retried).
@@ -132,6 +135,8 @@ const useSocket = () => {
 
       if (code === "TOKEN_EXPIRED") {
         endSession("expired");
+      } else if (code === "SESSION_ENDED") {
+        endSession("ended");
       } else if (code === "TOKEN_INVALID") {
         endSession("invalid");
       }
@@ -140,6 +145,12 @@ const useSocket = () => {
     // Sent by the server just before it closes a socket whose token expired.
     const handleSessionExpired = () => {
       endSession("expired");
+    };
+
+    // Sent when this login was ended elsewhere (sign out on another device,
+    // "remove this device", or a password change).
+    const handleSessionEnded = () => {
+      endSession("ended");
     };
 
     const handleDisconnect = (reason) => {
@@ -347,6 +358,8 @@ const useSocket = () => {
       handleSessionExpired
     );
 
+    socket.on("session_ended", handleSessionEnded);
+
     socket.on(
       "disconnect",
       handleDisconnect
@@ -424,6 +437,8 @@ const useSocket = () => {
         handleSessionExpired
       );
 
+      socket.off("session_ended", handleSessionEnded);
+
       socket.off(
         "disconnect",
         handleDisconnect
@@ -485,8 +500,8 @@ const useSocket = () => {
        */
     };
   }, [
-    user,
-    token,
+    userId,
+    hasToken,
     setOnlineUsers,
     setUserOnline,
     setUserOffline,

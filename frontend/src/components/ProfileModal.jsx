@@ -11,7 +11,7 @@ const MAX_ABOUT = 140;
  * Lets the logged-in user change their picture and "about" line.
  * The picture is shrunk in the browser first (see lib/image.js).
  */
-const ProfileModal = ({ onClose }) => {
+const ProfileModal = ({ onClose, onOpenSecurity }) => {
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
 
@@ -122,6 +122,16 @@ const ProfileModal = ({ onClose }) => {
         <p className="text-right text-xs text-gray-400">{about.length}/{MAX_ABOUT}</p>
 
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+
+        {onOpenSecurity && (
+          <button
+            type="button"
+            onClick={onOpenSecurity}
+            className="mt-3 text-sm text-blue-600 hover:text-blue-700"
+          >
+            Password and devices
+          </button>
+        )}
 
         <div className="flex justify-end gap-2 mt-4">
           <button

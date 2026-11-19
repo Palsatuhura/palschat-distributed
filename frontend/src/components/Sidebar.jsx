@@ -6,6 +6,7 @@ import useChatStore from "../store/chatStore";
 import UserAvatar from "./UserAvatar";
 import CreateGroupModal from "./CreateGroupModal";
 import ProfileModal from "./ProfileModal";
+import SecurityModal from "./SecurityModal";
 import GroupAvatar from "./GroupAvatar";
 import socket from "../lib/socket";
 
@@ -51,6 +52,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
   const [activeTab, setActiveTab] = useState("chats"); // "chats" | "people"
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showSecurity, setShowSecurity] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingConvs, setIsLoadingConvs] = useState(false);
 
@@ -133,7 +135,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
     u.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     console.log("🚪 Logging out — disconnecting socket...");
 
     // Prevent Socket.IO from reconnecting after logout.
@@ -145,6 +147,14 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
     // Disconnect the current socket.
     if (socket.connected || socket.active) {
       socket.disconnect();
+    }
+
+    // End this login on the server too, so its token stops working
+    // everywhere. If the server cannot be reached we still sign out here.
+    try {
+      await api.post("/auth/logout", null, { timeout: 3000, skipAuthRedirect: true });
+    } catch {
+      /* signed out locally anyway */
     }
 
     // Forget the previous user's conversations and messages, so the next
@@ -347,7 +357,16 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
 
       {/* Group creation modal */}
       {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} />}
-      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
+      {showProfile && (
+        <ProfileModal
+          onClose={() => setShowProfile(false)}
+          onOpenSecurity={() => {
+            setShowProfile(false);
+            setShowSecurity(true);
+          }}
+        />
+      )}
+      {showSecurity && <SecurityModal onClose={() => setShowSecurity(false)} />}
     </>
   );
 };

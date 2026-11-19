@@ -23,14 +23,16 @@ const getSecret = () => {
 };
 
 /**
- * Create a signed token for a user id. It expires after JWT_EXPIRES_IN
- * (default 24 hours), passed as a number of seconds (see parseDurationSeconds
- * for why it is never passed as a string).
+ * Create a signed token for a user id and the id of the login session it
+ * belongs to (`sid`). It expires after JWT_EXPIRES_IN (default 24 hours), or
+ * after `seconds` when given (used so a renewed token never outlives its
+ * session). Passed as a number of seconds (see parseDurationSeconds for why
+ * it is never passed as a string).
  */
-const signToken = (userId) =>
-  jwt.sign({ id: String(userId) }, getSecret(), {
+const signToken = (userId, sessionId, seconds) =>
+  jwt.sign({ id: String(userId), sid: String(sessionId) }, getSecret(), {
     algorithm: ALGORITHM,
-    expiresIn: resolveTokenSeconds(process.env.JWT_EXPIRES_IN),
+    expiresIn: seconds || resolveTokenSeconds(process.env.JWT_EXPIRES_IN),
   });
 
 /**

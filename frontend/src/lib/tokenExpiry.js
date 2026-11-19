@@ -44,3 +44,30 @@ export const isTokenExpired = (token, now = Date.now()) => {
   const remaining = msUntilExpiry(token, now);
   return remaining !== null && remaining <= 0;
 };
+
+const getClaimMs = (token, claim) => {
+  if (typeof token !== "string") return null;
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+
+  try {
+    const value = JSON.parse(decodeBase64Url(parts[1]))[claim];
+    return typeof value === "number" && Number.isFinite(value) ? value * 1000 : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Milliseconds until the token is HALF used up (negative once past that), or
+ * null when it has no readable issue and expiry times. The app asks the
+ * server for a fresh token at that point, so someone who keeps using it is
+ * not signed out.
+ */
+export const msUntilRenewal = (token, now = Date.now()) => {
+  const exp = getClaimMs(token, "exp");
+  const iat = getClaimMs(token, "iat");
+  if (exp === null || iat === null || exp <= iat) return null;
+  return exp - (exp - iat) / 2 - now;
+};

@@ -1,7 +1,8 @@
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const User = require("../models/User");
-const { verifyToken } = require("../utils/jwt");
+const { authenticate, AuthFailure } = require("../utils/authenticate");
+const { sessionRoom } = require("../utils/sessionService");
 const { createEventLimiter } = require("../utils/eventLimiter");
 const { isValidObjectId } = require("../utils/validators");
 const { createPresence, readPresenceConfig } = require("./presence");
@@ -258,35 +259,17 @@ const socketHandler = (io, presenceClient) => {
         );
       }
 
-      // Algorithm is pinned in utils/jwt.js.
-      const decoded = verifyToken(token);
-
-      if (!isValidObjectId(decoded.id)) {
-        return next(
-          authError(
-            "Invalid or expired authentication token",
-            "TOKEN_INVALID"
-          )
-        );
-      }
-
-      const user =
-        await User.findById(decoded.id)
-          .select("-password");
-
-      if (!user) {
-        return next(
-          authError(
-            "User no longer exists",
-            "TOKEN_INVALID"
-          )
-        );
-      }
+      // Signature, expiry AND "does this login session still exist" are all
+      // checked in one place (utils/authenticate.js).
+      const { user, session, decoded } = await authenticate(token);
 
       socket.userId =
         user._id.toString();
 
       socket.user = user;
+
+      socket.sessionId =
+        session._id.toString();
 
       // When this login token expires (ms since epoch). A socket that stays
       // connected must not outlive the token that authenticated it.
@@ -303,12 +286,14 @@ const socketHandler = (io, presenceClient) => {
       );
 
       next(
-        authError(
-          "Invalid or expired authentication token",
-          error.name === "TokenExpiredError"
-            ? "TOKEN_EXPIRED"
-            : "TOKEN_INVALID"
-        )
+        error instanceof AuthFailure
+          ? authError(error.message, error.code)
+          : authError(
+              "Invalid or expired authentication token",
+              error.name === "TokenExpiredError"
+                ? "TOKEN_EXPIRED"
+                : "TOKEN_INVALID"
+            )
       );
     }
   });
@@ -332,7 +317,12 @@ const socketHandler = (io, presenceClient) => {
      */
     let expiryTimer = null;
 
-    if (socket.tokenExpiresAt) {
+    const armExpiryTimer = () => {
+      clearTimeout(expiryTimer);
+      expiryTimer = null;
+
+      if (!socket.tokenExpiresAt) return;
+
       const msUntilExpiry =
         socket.tokenExpiresAt - Date.now();
 
@@ -353,7 +343,47 @@ const socketHandler = (io, presenceClient) => {
           Math.max(msUntilExpiry, 0)
         );
       }
-    }
+    };
+
+    armExpiryTimer();
+
+    // Everything of one login session sits in one room, so ending the
+    // session (sign out, remove device, password change) can close exactly
+    // these sockets, on whichever server they are connected to.
+    socket.join(sessionRoom(socket.sessionId));
+
+    /*
+     * The browser renews its login token quietly while it is in use. The
+     * socket must learn the new expiry, or it would be closed at the OLD one.
+     * The new token must belong to the same user AND the same session.
+     */
+    socket.on("renew_token", async (data, ack) => {
+      const reply = typeof ack === "function" ? ack : () => {};
+
+      try {
+        const token = data && data.token;
+        if (typeof token !== "string") return reply({ ok: false });
+
+        const renewed = await authenticate(token);
+
+        if (
+          String(renewed.user._id) !== socket.userId ||
+          String(renewed.session._id) !== socket.sessionId
+        ) {
+          return reply({ ok: false });
+        }
+
+        socket.tokenExpiresAt =
+          typeof renewed.decoded.exp === "number"
+            ? renewed.decoded.exp * 1000
+            : null;
+        armExpiryTimer();
+
+        return reply({ ok: true });
+      } catch {
+        return reply({ ok: false });
+      }
+    });
 
     /*
      * Flood protection. socket.use() runs before every event handler, so a

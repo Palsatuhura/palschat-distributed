@@ -267,6 +267,17 @@ const loginAccountLimiter = createRateLimiter({
   },
 });
 
+// Wrong "current password" attempts on the change-password form, per
+// logged-in user (a stolen login must not be able to guess the password).
+const passwordChangeLimiter = createRateLimiter({
+  name: "password-change",
+  windowMs: 15 * MINUTE,
+  max: 10,
+  skipSuccessful: true,
+  message: "Too many failed attempts. Please try again in a few minutes.",
+  keyFn: (req) => String(req.user?._id || ipKey(req.ip)),
+});
+
 const registerLimiter = createRateLimiter({
   name: "register",
   windowMs: 60 * MINUTE,
@@ -292,5 +303,6 @@ module.exports = {
   loginIpLimiter,
   loginAccountLimiter,
   registerLimiter,
+  passwordChangeLimiter,
   apiLimiter,
 };

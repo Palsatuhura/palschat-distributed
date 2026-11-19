@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const User = require("../models/User");
-const { signToken } = require("../utils/jwt");
+const { createSession } = require("../utils/sessionService");
 const {
   normalizeEmail,
   validateNewPassword,
@@ -64,7 +64,7 @@ const register = async (req, res) => {
     // Create user (password hashed automatically by mongoose pre-save hook)
     const user = await User.create({ name, email, password: body.password });
 
-    const token = signToken(user._id);
+    const { token } = await createSession(user, req);
 
     // Tell everyone who is connected, on any server, so their People list
     // updates without a refresh. A failure here must never fail the signup.
@@ -130,7 +130,7 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = signToken(user._id);
+    const { token } = await createSession(user, req);
 
     res.status(200).json({
       message: "Login successful",

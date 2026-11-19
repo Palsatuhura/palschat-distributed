@@ -1,12 +1,11 @@
-const User = require("../models/User");
-const { verifyToken } = require("../utils/jwt");
-const { isValidObjectId } = require("../utils/validators");
+const { authenticate, AuthFailure } = require("../utils/authenticate");
 
 /**
  * JWT Authentication Middleware
- * Extracts and verifies the Bearer token from the Authorization header.
- * On success, attaches the full user object to req.user.
- * On failure, returns a 401 Unauthorized response.
+ * Extracts and verifies the Bearer token from the Authorization header, and
+ * checks that its login session still exists (see utils/authenticate.js).
+ * On success, attaches the user to req.user and the session to req.session.
+ * On failure, returns a 401 Unauthorized response with a `code`.
  */
 const protect = async (req, res, next) => {
   try {
@@ -18,24 +17,15 @@ const protect = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
-    // Verify signature and expiry (algorithm is pinned in utils/jwt.js)
-    const decoded = verifyToken(token);
-
-    // A correctly signed token with a malformed id would otherwise throw a
-    // CastError below and surface as a 500.
-    if (!isValidObjectId(decoded.id)) {
-      return res.status(401).json({ code: "TOKEN_INVALID", message: "Invalid token" });
-    }
-
-    // Fetch the user — exclude password from the query
-    const user = await User.findById(decoded.id).select("-password");
-    if (!user) {
-      return res.status(401).json({ code: "TOKEN_INVALID", message: "User no longer exists" });
-    }
+    const { user, session } = await authenticate(token);
 
     req.user = user;
+    req.session = session;
     next();
   } catch (error) {
+    if (error instanceof AuthFailure) {
+      return res.status(401).json({ code: error.code, message: error.message });
+    }
     if (error.name === "JsonWebTokenError" || error.name === "NotBeforeError") {
       return res.status(401).json({ code: "TOKEN_INVALID", message: "Invalid token" });
     }
