@@ -26,6 +26,24 @@ const conversationSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    // Group picture: a small data URL (same rules as user pictures).
+    groupAvatar: {
+      type: String,
+      default: "",
+    },
+    groupDescription: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    // Group admins (user ids). Groups made before this field existed have it
+    // empty; see utils/groups.js adminIdsOf() for how that is handled.
+    admins: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     // Only for 1-on-1 chats: "<lowerId>:<higherId>". See dmKeyFor().
     dmKey: {
       type: String,

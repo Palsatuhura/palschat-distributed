@@ -629,7 +629,8 @@ const socketHandler = (io, presenceClient) => {
      * socket), which also proves the sender belongs to the conversation.
      */
     const participantCache = new Map();
-    const PARTICIPANT_CACHE_MS = 60 * 1000;
+    // Short, so people added to or removed from a group are noticed quickly.
+    const PARTICIPANT_CACHE_MS = 10 * 1000;
 
     const otherParticipants = async (conversationId) => {
       if (!isValidObjectId(conversationId)) return null;

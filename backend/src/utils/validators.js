@@ -7,6 +7,8 @@ const {
   MAX_NAME_LENGTH,
   MAX_AVATAR_LENGTH,
   MAX_ABOUT_LENGTH,
+  MAX_GROUP_NAME_LENGTH,
+  MAX_GROUP_DESCRIPTION_LENGTH,
 } = require("./constants");
 
 // Deliberately simple: the real proof of ownership is sending mail to it.
@@ -182,6 +184,32 @@ const validateAbout = (value) => {
 };
 
 /**
+ * Validate a group name. Returns { groupName } (trimmed) or { error }.
+ */
+const validateGroupName = (value) => {
+  if (typeof value !== "string" || !value.trim()) {
+    return { error: "Group name is required" };
+  }
+  const groupName = value.trim();
+  if (groupName.length > MAX_GROUP_NAME_LENGTH) {
+    return { error: `Group name cannot exceed ${MAX_GROUP_NAME_LENGTH} characters` };
+  }
+  return { groupName };
+};
+
+/**
+ * Validate a group description. Returns { groupDescription } or { error }.
+ */
+const validateGroupDescription = (value) => {
+  if (typeof value !== "string") return { error: "Description must be a string" };
+  const groupDescription = value.trim();
+  if (groupDescription.length > MAX_GROUP_DESCRIPTION_LENGTH) {
+    return { error: `Description cannot exceed ${MAX_GROUP_DESCRIPTION_LENGTH} characters` };
+  }
+  return { groupDescription };
+};
+
+/**
  * Stable key for a one-to-one conversation: the two user ids, lower-cased and
  * sorted, so (A,B) and (B,A) give the same key. A unique database index on it
  * stops two simultaneous requests from creating two DMs for the same pair.
@@ -190,6 +218,8 @@ const dmKeyFor = (idA, idB) =>
   [String(idA).toLowerCase(), String(idB).toLowerCase()].sort().join(":");
 
 module.exports = {
+  validateGroupName,
+  validateGroupDescription,
   validateAvatar,
   validateAbout,
   dmKeyFor,

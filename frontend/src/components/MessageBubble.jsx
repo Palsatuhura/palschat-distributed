@@ -63,7 +63,7 @@ const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => 
         {/* Sender name — only for group chats, first message in sequence */}
         {isGroup && !isOwnMessage && !isSameSenderAsPrevious && (
           <span className="text-xs text-gray-500 font-medium mb-1 ml-3">
-            {message.sender?.name}
+            {senderProfile?.name || message.sender?.name}
           </span>
         )}
 

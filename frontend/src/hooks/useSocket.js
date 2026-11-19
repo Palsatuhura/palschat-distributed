@@ -165,9 +165,20 @@ const useSocket = () => {
       }
     };
 
+    const handleConversationUpdated = (conversation) => {
+      if (conversation && conversation._id) {
+        useChatStore.getState().addOrUpdateConversation(conversation);
+      }
+    };
+
+    const handleConversationRemoved = ({ _id } = {}) => {
+      if (_id) useChatStore.getState().removeConversation(_id);
+    };
+
     const handleUserUpdated = (profile) => {
       if (!profile || !profile._id) return;
       const patch = { avatar: profile.avatar, about: profile.about };
+      if (profile.name) patch.name = profile.name;
       useChatStore.getState().updateUserProfile(profile._id, patch);
       if (profile._id === useAuthStore.getState().user?._id) {
         useAuthStore.getState().updateUser(patch);
@@ -356,6 +367,9 @@ const useSocket = () => {
       handleUserUpdated
     );
 
+    socket.on("conversation_updated", handleConversationUpdated);
+    socket.on("conversation_removed", handleConversationRemoved);
+
     socket.on(
       "user_online",
       handleUserOnline
@@ -429,6 +443,9 @@ const useSocket = () => {
         "user_updated",
         handleUserUpdated
       );
+
+      socket.off("conversation_updated", handleConversationUpdated);
+      socket.off("conversation_removed", handleConversationRemoved);
 
       socket.off(
         "user_online",

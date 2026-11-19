@@ -17,6 +17,7 @@ const ProfileModal = ({ onClose }) => {
 
   const fileRef = useRef(null);
   const [avatar, setAvatar] = useState(user?.avatar || "");
+  const [name, setName] = useState(user?.name || "");
   const [about, setAbout] = useState(user?.about || "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,10 +36,14 @@ const ProfileModal = ({ onClose }) => {
 
   const handleSave = async () => {
     setError("");
+    if (name.trim().length < 2) {
+      setError("Your name must be at least 2 characters.");
+      return;
+    }
     setBusy(true);
     try {
-      const { data } = await api.patch("/users/me", { avatar, about });
-      updateUser({ avatar: data.avatar, about: data.about });
+      const { data } = await api.patch("/users/me", { name, avatar, about });
+      updateUser({ name: data.name, avatar: data.avatar, about: data.about });
       onClose();
     } catch (err) {
       setError(err.response?.data?.message || "Could not save. Please try again.");
@@ -89,10 +94,20 @@ const ProfileModal = ({ onClose }) => {
           />
         </div>
 
-        <p className="text-center font-semibold text-gray-900 mt-4">{user?.name}</p>
-        <p className="text-center text-xs text-gray-500">{user?.email}</p>
+        <label className="block text-sm font-medium text-gray-700 mt-4 mb-1" htmlFor="profile-name">
+          Name
+        </label>
+        <input
+          id="profile-name"
+          type="text"
+          maxLength={50}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-xs text-gray-400 mt-1">Email: {user?.email} (cannot be changed here)</p>
 
-        <label className="block text-sm font-medium text-gray-700 mt-4 mb-1" htmlFor="about">
+        <label className="block text-sm font-medium text-gray-700 mt-3 mb-1" htmlFor="about">
           About
         </label>
         <textarea

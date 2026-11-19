@@ -77,14 +77,37 @@ const useChatStore = create((set, get) => ({
   addOrUpdateConversation: (conversation) =>
     set((state) => {
       const exists = state.conversations.find((c) => c._id === conversation._id);
+      // Keep the open chat in step, so a renamed group or a changed member
+      // list shows at once in its header and info panel.
+      const activeConversation =
+        state.activeConversation?._id === conversation._id
+          ? { ...state.activeConversation, ...conversation }
+          : state.activeConversation;
       if (exists) {
         return {
           conversations: state.conversations.map((c) =>
             c._id === conversation._id ? conversation : c
           ),
+          activeConversation,
         };
       }
-      return { conversations: [conversation, ...state.conversations] };
+      return { conversations: [conversation, ...state.conversations], activeConversation };
+    }),
+
+  /**
+   * A conversation is gone for this user (they left a group or an admin
+   * removed them). Drop it, its unread count, and close it if it is open.
+   */
+  removeConversation: (conversationId) =>
+    set((state) => {
+      const closing = state.activeConversation?._id === conversationId;
+      const unreadCounts = { ...state.unreadCounts };
+      delete unreadCounts[conversationId];
+      return {
+        conversations: state.conversations.filter((c) => c._id !== conversationId),
+        unreadCounts,
+        ...(closing ? { activeConversation: null, messages: [], hasMoreMessages: false } : {}),
+      };
     }),
 
   setActiveConversation: (conversation) =>

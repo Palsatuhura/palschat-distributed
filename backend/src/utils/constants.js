@@ -30,6 +30,7 @@ const MIN_NAME_LENGTH = 2;
 // 128x128 before upload); "about" is a short status line.
 const MAX_AVATAR_LENGTH = 40000;
 const MAX_ABOUT_LENGTH = 140;
+const MAX_GROUP_DESCRIPTION_LENGTH = 200;
 const MAX_NAME_LENGTH = 50;
 
 // Per-socket event budgets (see utils/eventLimiter.js).
@@ -53,4 +54,5 @@ module.exports = {
   MAX_NAME_LENGTH,
   MAX_AVATAR_LENGTH,
   MAX_ABOUT_LENGTH,
+  MAX_GROUP_DESCRIPTION_LENGTH,
 };

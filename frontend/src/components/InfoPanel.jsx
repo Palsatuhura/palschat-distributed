@@ -2,6 +2,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import useAuthStore from "../store/authStore";
 import useChatStore from "../store/chatStore";
 import UserAvatar from "./UserAvatar";
+import GroupInfoPanel from "./GroupInfoPanel";
 
 const lastSeenText = (person) => {
   if (!person?.lastSeen) return "Offline";
@@ -17,6 +18,14 @@ const lastSeenText = (person) => {
  *   - group chat: the group name, member count, creation date and members
  */
 const InfoPanel = ({ conversation, onClose }) => {
+  // Groups have their own panel, with the admin tools.
+  if (conversation?.isGroup) {
+    return <GroupInfoPanel conversationId={conversation._id} onClose={onClose} />;
+  }
+  return <ContactInfo conversation={conversation} onClose={onClose} />;
+};
+
+const ContactInfo = ({ conversation, onClose }) => {
   const me = useAuthStore((s) => s.user);
   const onlineUsers = useChatStore((s) => s.onlineUsers);
 

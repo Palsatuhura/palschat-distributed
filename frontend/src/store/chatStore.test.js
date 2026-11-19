@@ -145,3 +145,26 @@ test("updateUserProfile changes the person everywhere they appear", () => {
   assert.equal(state().activeConversation.participants[1].about, "Busy");
   assert.equal(state().users[0].name, "Bob");
 });
+
+test("addOrUpdateConversation keeps the open chat in step", () => {
+  reset();
+  const g = { _id: "g1", isGroup: true, groupName: "Old", participants: [] };
+  state().setConversations([g]);
+  state().setActiveConversation(g);
+  state().addOrUpdateConversation({ ...g, groupName: "New" });
+  assert.equal(state().activeConversation.groupName, "New");
+  assert.equal(state().conversations[0].groupName, "New");
+});
+
+test("removeConversation drops it and closes it if open", () => {
+  reset();
+  const g = { _id: "g1", isGroup: true, groupName: "G", participants: [] };
+  const h = { _id: "g2", isGroup: true, groupName: "H", participants: [] };
+  state().setConversations([g, h]);
+  state().setActiveConversation(g);
+  state().removeConversation("g1");
+  assert.deepEqual(state().conversations.map((c) => c._id), ["g2"]);
+  assert.equal(state().activeConversation, null);
+  state().removeConversation("nope");
+  assert.equal(state().conversations.length, 1);
+});

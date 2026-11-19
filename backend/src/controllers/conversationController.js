@@ -5,11 +5,11 @@ const {
   dmKeyFor,
   isValidObjectId,
   normalizeParticipantIds,
+  validateAvatar,
+  validateGroupName,
+  validateGroupDescription,
 } = require("../utils/validators");
-const {
-  PUBLIC_USER_FIELDS,
-  MAX_GROUP_NAME_LENGTH,
-} = require("../utils/constants");
+const { PUBLIC_USER_FIELDS } = require("../utils/constants");
 
 /**
  * GET /api/conversations
@@ -50,7 +50,7 @@ const getConversations = async (req, res) => {
  */
 const createOrGetConversation = async (req, res) => {
   try {
-    const { participantId, participantIds, isGroup, groupName } = req.body;
+    const { participantId, participantIds, isGroup, groupName, groupAvatar, groupDescription } = req.body;
 
     // --- Group chat creation ---
     // Strict comparison: a string such as "false" must not count as true.
@@ -68,13 +68,23 @@ const createOrGetConversation = async (req, res) => {
         return res.status(400).json({ message: "Group needs at least 2 other participants" });
       }
 
-      if (typeof groupName !== "string" || !groupName.trim()) {
-        return res.status(400).json({ message: "Group name is required" });
+      const { groupName: cleanName, error: nameError } = validateGroupName(groupName);
+      if (nameError) {
+        return res.status(400).json({ message: nameError });
       }
-      if (groupName.trim().length > MAX_GROUP_NAME_LENGTH) {
-        return res.status(400).json({
-          message: `Group name cannot exceed ${MAX_GROUP_NAME_LENGTH} characters`,
-        });
+
+      let cleanAvatar = "";
+      if (groupAvatar !== undefined) {
+        const { avatar, error: avatarError } = validateAvatar(groupAvatar);
+        if (avatarError) return res.status(400).json({ message: avatarError });
+        cleanAvatar = avatar;
+      }
+
+      let cleanDescription = "";
+      if (groupDescription !== undefined) {
+        const { groupDescription: d, error: descError } = validateGroupDescription(groupDescription);
+        if (descError) return res.status(400).json({ message: descError });
+        cleanDescription = d;
       }
 
       // Every listed member must be a real user.
@@ -87,10 +97,27 @@ const createOrGetConversation = async (req, res) => {
       const groupConversation = await Conversation.create({
         participants: allParticipants,
         isGroup: true,
-        groupName: groupName.trim(),
+        groupName: cleanName,
+        groupAvatar: cleanAvatar,
+        groupDescription: cleanDescription,
+        admins: [req.user._id], // the creator starts as the admin
       });
 
       const populated = await groupConversation.populate("participants", PUBLIC_USER_FIELDS);
+
+      // Show the new group to the other members right away, without waiting
+      // for the first message. Best effort: never fail the request.
+      try {
+        const io = req.app.get("io");
+        if (io && otherMemberIds.length > 0) {
+          let target = io;
+          for (const id of otherMemberIds) target = target.to(`user:${id}`);
+          target.emit("conversation_updated", populated);
+        }
+      } catch {
+        /* ignore */
+      }
+
       return res.status(201).json(populated);
     }
 

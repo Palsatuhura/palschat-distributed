@@ -1,6 +1,6 @@
 const User = require("../models/User");
 const { PUBLIC_USER_FIELDS } = require("../utils/constants");
-const { validateAvatar, validateAbout } = require("../utils/validators");
+const { validateAvatar, validateAbout, validateName } = require("../utils/validators");
 
 /**
  * GET /api/users
@@ -25,14 +25,20 @@ const getAllUsers = async (req, res) => {
 
 /**
  * PATCH /api/users/me
- * Changes the logged-in user's own profile picture and/or "about" line.
- * Only those two fields can be changed here, and only for yourself: the
+ * Changes the logged-in user's own name, profile picture and/or "about" line.
+ * Only those fields can be changed here (not the email or password), and only for yourself: the
  * user id always comes from the token, never from the request body.
  */
 const updateMe = async (req, res) => {
   try {
     const body = req.body || {};
     const updates = {};
+
+    if (body.name !== undefined) {
+      const { name, error } = validateName(body.name);
+      if (error) return res.status(400).json({ message: error });
+      updates.name = name;
+    }
 
     if (body.avatar !== undefined) {
       const { avatar, error } = validateAvatar(body.avatar);
@@ -60,6 +66,7 @@ const updateMe = async (req, res) => {
 
     const profile = {
       _id: user._id,
+      name: user.name,
       avatar: user.avatar,
       about: user.about,
     };
