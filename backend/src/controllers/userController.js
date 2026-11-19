@@ -12,7 +12,7 @@ const getAllUsers = async (req, res) => {
   try {
     // Exclude the current user from results. Only public profile fields are
     // returned: other users' email addresses must not be exposed.
-    const users = await User.find({ _id: { $ne: req.user._id } })
+    const users = await User.find({ _id: { $ne: req.user._id }, deletedAt: null })
       .select(PUBLIC_USER_FIELDS)
       .sort({ name: 1 });
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import api from "../lib/axios";
 import { endSession } from "../lib/session";
+import ConfirmDialog from "./ConfirmDialog";
 
 const ago = (value) => {
   const when = new Date(value);
@@ -28,6 +29,12 @@ const SecurityModal = ({ onClose }) => {
   const [pwError, setPwError] = useState("");
   const [pwDone, setPwDone] = useState("");
   const [pwBusy, setPwBusy] = useState(false);
+
+  const [showDelete, setShowDelete] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteWord, setDeleteWord] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -65,6 +72,20 @@ const SecurityModal = ({ onClose }) => {
     } catch (err) {
       setListError(err.response?.data?.message || "Could not sign out everywhere.");
       setBusyId("");
+    }
+  };
+
+  const deleteAccount = async () => {
+    setDeleteError("");
+    if (deleteWord !== "DELETE") return setDeleteError("Type DELETE in capital letters.");
+    if (!deletePassword) return setDeleteError("Please enter your password.");
+    setDeleteBusy(true);
+    try {
+      await api.delete("/users/me", { data: { password: deletePassword, confirm: "DELETE" } });
+      endSession("deleted");
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || "Could not delete the account.");
+      setDeleteBusy(false);
     }
   };
 
@@ -208,7 +229,64 @@ const SecurityModal = ({ onClose }) => {
         >
           Sign out of all devices
         </button>
+
+        <h3 className="text-sm font-semibold text-red-700 mt-6 mb-1">Delete my account</h3>
+        <p className="text-xs text-gray-500 mb-2">
+          This cannot be undone. You leave all groups and are signed out everywhere. Your old
+          messages stay for the other people, shown as "Deleted user".
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setDeleteError("");
+            setShowDelete(true);
+          }}
+          className="w-full px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700"
+        >
+          Delete my account
+        </button>
       </div>
+
+      {showDelete && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ConfirmDialog
+            title="Delete your account?"
+            message={
+              <span className="block space-y-2">
+                <span className="block">Enter your password and type DELETE to confirm.</span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Your password"
+                  aria-label="Your password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  className={input}
+                />
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Type DELETE"
+                  aria-label="Type DELETE"
+                  value={deleteWord}
+                  onChange={(e) => setDeleteWord(e.target.value)}
+                  className={input}
+                />
+              </span>
+            }
+            confirmLabel="Delete forever"
+            danger
+            busy={deleteBusy}
+            error={deleteError}
+            onConfirm={deleteAccount}
+            onCancel={() => {
+              setShowDelete(false);
+              setDeletePassword("");
+              setDeleteWord("");
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

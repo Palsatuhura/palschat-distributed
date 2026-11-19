@@ -7,6 +7,7 @@ import MessageBubble from "./MessageBubble";
 import UserAvatar from "./UserAvatar";
 import InfoPanel from "./InfoPanel";
 import GroupAvatar from "./GroupAvatar";
+import ConfirmDialog from "./ConfirmDialog";
 
 /**
  * ChatWindow
@@ -54,6 +55,10 @@ const ChatWindow = ({ onMenuClick }) => {
   const [sendError, setSendError] = useState("");
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // "clear" | "delete" | null
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   // Ref to the messages container for auto-scroll
   const messagesEndRef = useRef(null);
@@ -385,6 +390,29 @@ const ChatWindow = ({ onMenuClick }) => {
         .filter(([uid]) => uid !== user._id)
     : [];
 
+  // The other person deleted their account: this chat is read-only.
+  const isReadOnly = Boolean(activeConversation?.readOnly);
+
+  const runChatAction = async () => {
+    if (!activeConversation || !confirmAction) return;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      if (confirmAction === "clear") {
+        await api.post(`/conversations/${activeConversation._id}/clear`);
+        useChatStore.getState().clearConversationMessages(activeConversation._id);
+      } else {
+        await api.delete(`/conversations/${activeConversation._id}`);
+        useChatStore.getState().removeConversation(activeConversation._id);
+      }
+      setConfirmAction(null);
+    } catch (err) {
+      setActionError(err.response?.data?.message || "That did not work. Please try again.");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   // ─── Empty state ───────────────────────────────────────────────────────
   if (!activeConversation) {
     return (
@@ -446,6 +474,67 @@ const ChatWindow = ({ onMenuClick }) => {
           )}
         </div>
         </button>
+
+        {/* ⋮ menu: clear or delete this chat (only for me) */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Chat options"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            className="p-2 hover:bg-gray-100 rounded-full text-gray-500"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div
+                role="menu"
+                className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1"
+              >
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowInfo(true);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {activeConversation.isGroup ? "Group info" : "Contact info"}
+                </button>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setActionError("");
+                    setConfirmAction("clear");
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Clear chat
+                </button>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setActionError("");
+                    setConfirmAction("delete");
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  Delete chat
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Messages area ── */}
@@ -507,6 +596,11 @@ const ChatWindow = ({ onMenuClick }) => {
       </div>
 
       {/* ── Input bar ── */}
+      {isReadOnly ? (
+        <div className="bg-white border-t border-gray-200 px-4 py-4 text-center text-sm text-gray-500">
+          This account was deleted. You can read the old messages but cannot send new ones.
+        </div>
+      ) : (
       <div className="bg-white border-t border-gray-200 px-4 py-3">
         {sendError && (
           <p role="alert" className="text-xs text-red-600 mb-2 ml-4">
@@ -547,6 +641,24 @@ const ChatWindow = ({ onMenuClick }) => {
           <kbd className="px-1 py-0.5 bg-gray-200 rounded text-[10px]">Shift+Enter</kbd> for newline
         </p>
       </div>
+      )}
+
+      {confirmAction && (
+        <ConfirmDialog
+          title={confirmAction === "clear" ? "Clear this chat?" : "Delete this chat?"}
+          message={
+            confirmAction === "clear"
+              ? "All messages will be removed from your screen. Other people in the chat keep theirs."
+              : "This chat will be removed from your list and its messages cleared for you. It comes back if someone sends a new message. Other people keep their copy."
+          }
+          confirmLabel={confirmAction === "clear" ? "Clear chat" : "Delete chat"}
+          danger
+          busy={actionBusy}
+          error={actionError}
+          onConfirm={runChatAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
 
       {showInfo && (
         <InfoPanel

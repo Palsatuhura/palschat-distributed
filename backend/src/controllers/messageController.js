@@ -2,6 +2,7 @@ const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const { isValidObjectId } = require("../utils/validators");
 const { parseLimit, olderThanFilter } = require("../utils/pagination");
+const { clearedAtFor } = require("../utils/chatState");
 
 /**
  * GET /api/conversations/:id/messages
@@ -58,9 +59,14 @@ const getMessages = async (req, res) => {
       olderThan = olderThanFilter(cursor);
     }
 
+    // "Clear chat": this person never sees messages from before the time they
+    // cleared it (other members still do).
+    const clearedAt = clearedAtFor(conversation, req.user._id);
+    const notCleared = clearedAt ? { createdAt: { $gt: clearedAt } } : {};
+
     // Newest first so that "limit" keeps the LATEST messages, then flip the
     // page to oldest-first for display.
-    const newestFirst = await Message.find({ conversation: conversationId, ...olderThan })
+    const newestFirst = await Message.find({ conversation: conversationId, ...notCleared, ...olderThan })
       .populate("sender", "name")
       .sort({ createdAt: -1, _id: -1 })
       .limit(limit);

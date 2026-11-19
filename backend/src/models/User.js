@@ -41,6 +41,12 @@ const userSchema = new mongoose.Schema(
       trim: true,
       maxlength: [140, "About cannot exceed 140 characters"],
     },
+    // Set when the person deletes their account. The record stays (anonymised
+    // as "Deleted user") so other people's chat history keeps its shape.
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
     isOnline: {
       type: Boolean,
       default: false,

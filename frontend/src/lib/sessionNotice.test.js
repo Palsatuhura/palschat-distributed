@@ -16,3 +16,7 @@ test("getSessionNotice still handles the ended reason", () => {
   assert.ok(getSessionNotice("ended").length > 0);
   assert.equal(getSessionNotice("<script>"), "");
 });
+
+test("getSessionNotice explains a deleted account", () => {
+  assert.match(getSessionNotice("deleted"), /deleted/i);
+});

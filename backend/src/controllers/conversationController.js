@@ -10,6 +10,7 @@ const {
   validateGroupDescription,
 } = require("../utils/validators");
 const { PUBLIC_USER_FIELDS } = require("../utils/constants");
+const { isHiddenFor, viewFor } = require("../utils/chatState");
 
 /**
  * GET /api/conversations
@@ -21,6 +22,8 @@ const getConversations = async (req, res) => {
   try {
     const conversations = await Conversation.find({
       participants: { $in: [req.user._id] },
+      // Chats this person deleted stay out of the list until a new message.
+      hiddenFor: { $ne: req.user._id },
     })
       .populate("participants", PUBLIC_USER_FIELDS)
       .populate({
@@ -29,7 +32,11 @@ const getConversations = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
-    res.status(200).json(conversations);
+    // Each person sees only their own view: other people's private state is
+    // removed and a preview they already cleared is dropped.
+    res.status(200).json(
+      conversations.map((c) => viewFor(c.toObject ? c.toObject() : c, req.user._id))
+    );
   } catch (error) {
     console.error("Get conversations error:", error);
     res.status(500).json({ message: "Server error fetching conversations" });
@@ -88,7 +95,7 @@ const createOrGetConversation = async (req, res) => {
       }
 
       // Every listed member must be a real user.
-      const existingUsers = await User.countDocuments({ _id: { $in: otherMemberIds } });
+      const existingUsers = await User.countDocuments({ _id: { $in: otherMemberIds }, deletedAt: null });
       if (existingUsers !== otherMemberIds.length) {
         return res.status(400).json({ message: "One or more participants do not exist" });
       }
@@ -131,7 +138,7 @@ const createOrGetConversation = async (req, res) => {
     if (participantId.toLowerCase() === req.user._id.toString()) {
       return res.status(400).json({ message: "You cannot start a conversation with yourself" });
     }
-    if (!(await User.exists({ _id: participantId }))) {
+    if (!(await User.exists({ _id: participantId, deletedAt: null }))) {
       return res.status(404).json({ message: "User not found" });
     }
 
@@ -148,9 +155,18 @@ const createOrGetConversation = async (req, res) => {
           populate: { path: "sender", select: "name" },
         });
 
+    // An existing chat this person had deleted comes back when they open it
+    // again (the messages they cleared stay hidden).
+    const reopen = async (conversation) => {
+      if (isHiddenFor(conversation, req.user._id)) {
+        await Conversation.updateOne({ _id: conversation._id }, { $pull: { hiddenFor: req.user._id } });
+      }
+      return viewFor(conversation.toObject ? conversation.toObject() : conversation, req.user._id);
+    };
+
     const existingConversation = await findExistingDm();
     if (existingConversation) {
-      return res.status(200).json(existingConversation);
+      return res.status(200).json(await reopen(existingConversation));
     }
 
     // Create new DM. Two requests can get here at the same moment; the unique
@@ -169,7 +185,7 @@ const createOrGetConversation = async (req, res) => {
       // that one instead of failing or making a second DM.
       if (createError?.code === 11000) {
         const winner = await findExistingDm();
-        if (winner) return res.status(200).json(winner);
+        if (winner) return res.status(200).json(await reopen(winner));
       }
       throw createError;
     }

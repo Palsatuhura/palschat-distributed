@@ -49,6 +49,29 @@ const conversationSchema = new mongoose.Schema(
       type: String,
       default: undefined,
     },
+    // "Clear chat": per member, messages up to this time are hidden from THAT
+    // member only. Everyone else still sees them.
+    clearedAt: [
+      {
+        _id: false,
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        at: { type: Date, required: true },
+      },
+    ],
+    // "Delete chat": members who removed this chat from their list. It
+    // comes back when a new message arrives.
+    hiddenFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    // A one-to-one chat whose other person deleted their account: nobody
+    // can send into it any more.
+    readOnly: {
+      type: Boolean,
+      default: false,
+    },
     // Reference to the last message for sidebar preview
     lastMessage: {
       type: mongoose.Schema.Types.ObjectId,

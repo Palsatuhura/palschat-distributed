@@ -7,7 +7,7 @@
 
 // Fields of another user that are safe to show to any authenticated user.
 // Deliberately excludes email, password and timestamps.
-const PUBLIC_USER_FIELDS = "name avatar about isOnline lastSeen";
+const PUBLIC_USER_FIELDS = "name avatar about isOnline lastSeen deletedAt";
 
 // Must match the maxlength on Message.text in models/Message.js.
 const MAX_MESSAGE_LENGTH = 2000;

@@ -110,6 +110,28 @@ const useChatStore = create((set, get) => ({
       };
     }),
 
+  /**
+   * "Clear chat" (only for me): empty the open message list and drop the
+   * preview in the conversation list.
+   */
+  clearConversationMessages: (conversationId) =>
+    set((state) => {
+      const unreadCounts = { ...state.unreadCounts };
+      delete unreadCounts[conversationId];
+      const open = state.activeConversation?._id === conversationId;
+      return {
+        conversations: state.conversations.map((c) =>
+          c._id === conversationId ? { ...c, lastMessage: null } : c
+        ),
+        unreadCounts,
+        ...(open ? { messages: [], hasMoreMessages: false } : {}),
+      };
+    }),
+
+  /** A person deleted their account: take them off the People list. */
+  removeUser: (userId) =>
+    set((state) => ({ users: state.users.filter((u) => u._id !== userId) })),
+
   setActiveConversation: (conversation) =>
     set((state) => {
       // Clicking the conversation that is already open must not wipe its

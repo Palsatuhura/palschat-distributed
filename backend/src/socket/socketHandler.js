@@ -91,17 +91,27 @@ const socketHandler = (io, presenceClient) => {
   // Like canAccessConversation, but returns the participant ids (strings) so
   // a message can be delivered to each of them, or null if the user may not
   // access the conversation.
-  const getParticipantIds = async (conversationId, userId) => {
+  const getConversationInfo = async (conversationId, userId) => {
     if (!isValidObjectId(conversationId)) return null;
 
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: userId,
     })
-      .select("participants")
+      .select("participants readOnly")
       .lean();
 
-    return conversation ? conversation.participants.map(String) : null;
+    return conversation
+      ? {
+          ids: conversation.participants.map(String),
+          readOnly: Boolean(conversation.readOnly),
+        }
+      : null;
+  };
+
+  const getParticipantIds = async (conversationId, userId) => {
+    const info = await getConversationInfo(conversationId, userId);
+    return info ? info.ids : null;
   };
 
   /*
@@ -579,11 +589,21 @@ const socketHandler = (io, presenceClient) => {
           }
 
           // Authorization: only participants may post into a conversation.
-          const participantIds =
-            await getParticipantIds(
+          const info =
+            await getConversationInfo(
               conversationId,
               senderId
             );
+          const participantIds = info ? info.ids : null;
+
+          if (info && info.readOnly) {
+            // The other person deleted their account.
+            fail(
+              "This account was deleted. You can no longer send messages here."
+            );
+
+            return;
+          }
 
           if (!participantIds) {
             console.warn(
@@ -618,6 +638,8 @@ const socketHandler = (io, presenceClient) => {
                 message._id,
               updatedAt:
                 new Date(),
+              // A new message brings back a chat someone had deleted.
+              hiddenFor: [],
             }
           );
 

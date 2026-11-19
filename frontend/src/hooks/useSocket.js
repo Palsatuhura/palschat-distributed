@@ -186,10 +186,26 @@ const useSocket = () => {
       if (_id) useChatStore.getState().removeConversation(_id);
     };
 
+    // I cleared or deleted a chat (possibly on another of my devices).
+    const handleChatCleared = ({ conversationId } = {}) => {
+      if (conversationId) {
+        useChatStore.getState().clearConversationMessages(conversationId);
+      }
+    };
+
+    const handleChatDeleted = ({ conversationId } = {}) => {
+      if (conversationId) useChatStore.getState().removeConversation(conversationId);
+    };
+
+    const handleUserRemoved = ({ _id } = {}) => {
+      if (_id) useChatStore.getState().removeUser(_id);
+    };
+
     const handleUserUpdated = (profile) => {
       if (!profile || !profile._id) return;
       const patch = { avatar: profile.avatar, about: profile.about };
       if (profile.name) patch.name = profile.name;
+      if (profile.deletedAt) patch.deletedAt = profile.deletedAt;
       useChatStore.getState().updateUserProfile(profile._id, patch);
       if (profile._id === useAuthStore.getState().user?._id) {
         useAuthStore.getState().updateUser(patch);
@@ -382,6 +398,9 @@ const useSocket = () => {
 
     socket.on("conversation_updated", handleConversationUpdated);
     socket.on("conversation_removed", handleConversationRemoved);
+    socket.on("chat_cleared", handleChatCleared);
+    socket.on("chat_deleted", handleChatDeleted);
+    socket.on("user_removed", handleUserRemoved);
 
     socket.on(
       "user_online",
@@ -461,6 +480,9 @@ const useSocket = () => {
 
       socket.off("conversation_updated", handleConversationUpdated);
       socket.off("conversation_removed", handleConversationRemoved);
+      socket.off("chat_cleared", handleChatCleared);
+      socket.off("chat_deleted", handleChatDeleted);
+      socket.off("user_removed", handleUserRemoved);
 
       socket.off(
         "user_online",

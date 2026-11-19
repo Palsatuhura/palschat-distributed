@@ -20,6 +20,8 @@ export const getSessionNotice = (reason) => {
       return "Your session expired. Please sign in again.";
     case "ended":
       return "This login was ended. Please sign in again.";
+    case "deleted":
+      return "Your account was deleted.";
     case "invalid":
       return "Your session is no longer valid. Please sign in again.";
     default:

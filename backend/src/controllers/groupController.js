@@ -155,7 +155,7 @@ const addGroupMembers = async (req, res) => {
     if (idsError) return res.status(400).json({ message: idsError });
     if (ids.length === 0) return res.status(400).json({ message: "Choose at least one person" });
 
-    const found = await User.countDocuments({ _id: { $in: ids } });
+    const found = await User.countDocuments({ deletedAt: null, _id: { $in: ids } });
     if (found !== ids.length) {
       return res.status(400).json({ message: "One or more people do not exist" });
     }
@@ -239,7 +239,28 @@ const changeAdmin = async (req, res, action) => {
   }
 };
 
+/**
+ * Used when an account is deleted: that person leaves this group, with the
+ * same rules as leaving (an admin is promoted if needed; the last member
+ * closes the group). Everyone else is told live.
+ */
+const removeUserFromGroup = async (req, group, userId) => {
+  const result = groups.removeMember(group, userId);
+  if (result.error) return; // not a member any more
+
+  if (result.participants.length === 0) {
+    await Message.deleteMany({ conversation: group._id });
+    await Conversation.deleteOne({ _id: group._id });
+    await announce(req, group._id, [], [String(userId)]);
+    return;
+  }
+
+  await saveMembership(group, result);
+  await announce(req, group._id, result.participants, [String(userId).toLowerCase()]);
+};
+
 module.exports = {
+  removeUserFromGroup,
   updateGroup,
   addGroupMembers,
   removeGroupMember,

@@ -48,7 +48,7 @@ const authenticate = async (token) => {
   }
 
   const user = await User.findById(decoded.id).select("-password");
-  if (!user) {
+  if (!user || user.deletedAt) {
     throw new AuthFailure("User no longer exists", "TOKEN_INVALID");
   }
 
