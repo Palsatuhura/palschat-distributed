@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { format, isToday, isYesterday } from "date-fns";
+import AttachmentView from "./AttachmentView";
+import { attachmentLabel } from "../lib/attachmentInfo";
 import useAuthStore from "../store/authStore";
 import useChatStore from "../store/chatStore";
 import UserAvatar from "./UserAvatar";
@@ -172,7 +174,7 @@ const MessageBubble = ({
             >
               <p className="font-semibold truncate">{quotedName || "Deleted user"}</p>
               <p className="truncate">
-                {quoted.deletedAt ? "This message was deleted" : quoted.text}
+                {quoted.deletedAt ? "This message was deleted" : quoted.text || attachmentLabel(quoted.attachment)}
               </p>
             </div>
           )}
@@ -183,7 +185,18 @@ const MessageBubble = ({
               This message was deleted
             </p>
           ) : (
-            <p className="whitespace-pre-wrap break-words pr-4">{message.text}</p>
+            <>
+              {message.attachment && (
+                <AttachmentView
+                  conversationId={message.conversation}
+                  attachment={message.attachment}
+                  isOwn={isOwnMessage}
+                />
+              )}
+              {message.text && (
+                <p className="whitespace-pre-wrap break-words pr-4">{message.text}</p>
+              )}
+            </>
           )}
 
           {/* Timestamp + read receipt */}

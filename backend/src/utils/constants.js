@@ -40,11 +40,16 @@ const DELETE_FOR_EVERYONE_MS = 48 * 60 * 60 * 1000;
 // A person may pin up to this many chats to the top of their list.
 const MAX_PINNED_CHATS = 3;
 
+// Largest picture or file one message can carry (after the browser shrinks
+// pictures). Files live in the database, so this stays small on purpose.
+const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+
 const SOCKET_EVENT_WINDOW_MS = 10 * 1000;
 const SOCKET_EVENTS_PER_WINDOW = 100; // all events together
 const SOCKET_MESSAGES_PER_WINDOW = 20; // send_message only
 
 module.exports = {
+  MAX_ATTACHMENT_BYTES,
   MAX_PINNED_CHATS,
   DELETE_FOR_EVERYONE_MS,
   SOCKET_EVENT_WINDOW_MS,

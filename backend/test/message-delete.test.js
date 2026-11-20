@@ -28,6 +28,7 @@ stub("src/models/Conversation.js", {
       q._id === CID && [A, B].includes(String(q.participants)) ? { participants: [A, B] } : null,
   }),
 });
+stub("src/models/Attachment.js", { deleteOne: async (q) => writes.push({ attachmentDeleted: q }) });
 stub("src/models/Message.js", {
   findOne: (q) => ({
     select: async () => (q._id === MID && q.conversation === CID ? message : null),

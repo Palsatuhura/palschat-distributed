@@ -3,12 +3,13 @@ const Conversation = require("../models/Conversation");
 const { isValidObjectId } = require("../utils/validators");
 const { parseLimit, olderThanFilter } = require("../utils/pagination");
 const { clearedAtFor } = require("../utils/chatState");
+const Attachment = require("../models/Attachment");
 const { checkDeleteForEveryone } = require("../utils/messageRules");
 
 // The little quoted message shown above a reply.
 const REPLY_POPULATE = {
   path: "replyTo",
-  select: "text sender deletedAt",
+  select: "text sender deletedAt attachment",
   populate: { path: "sender", select: "name" },
 };
 
@@ -136,7 +137,7 @@ const deleteMessage = async (req, res) => {
     // The message must belong to THIS conversation, so ids cannot be used to
     // reach other chats.
     const message = await Message.findOne({ _id: messageId, conversation: conversationId }).select(
-      "sender createdAt deletedAt"
+      "sender createdAt deletedAt attachment"
     );
     if (!message) return res.status(404).json({ message: "Message not found" });
 
@@ -157,7 +158,14 @@ const deleteMessage = async (req, res) => {
 
     const deletedAt = message.deletedAt || new Date();
     if (!message.deletedAt) {
-      await Message.updateOne({ _id: message._id }, { $set: { text: "", deletedAt } });
+      await Message.updateOne(
+        { _id: message._id },
+        { $set: { text: "", deletedAt }, $unset: { attachment: 1 } }
+      );
+      // The picture or file goes too.
+      if (message.attachment && message.attachment.id) {
+        await Attachment.deleteOne({ _id: message.attachment.id });
+      }
     }
 
     try {

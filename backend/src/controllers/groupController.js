@@ -1,3 +1,4 @@
+const Attachment = require("../models/Attachment");
 const { stripPrivate } = require("../utils/chatState");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
@@ -199,6 +200,7 @@ const removeGroupMember = async (req, res) => {
     // The last person leaving closes the group down.
     if (result.participants.length === 0) {
       await Message.deleteMany({ conversation: group._id });
+      await Attachment.deleteMany({ conversation: group._id });
       await Conversation.deleteOne({ _id: group._id });
       await announce(req, group._id, [], [String(req.user._id)]);
       return res.status(200).json({ _id: String(group._id), removed: true });
@@ -254,6 +256,7 @@ const removeUserFromGroup = async (req, group, userId) => {
 
   if (result.participants.length === 0) {
     await Message.deleteMany({ conversation: group._id });
+    await Attachment.deleteMany({ conversation: group._id });
     await Conversation.deleteOne({ _id: group._id });
     await announce(req, group._id, [], [String(userId)]);
     return;

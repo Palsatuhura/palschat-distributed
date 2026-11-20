@@ -20,9 +20,29 @@ const messageSchema = new mongoose.Schema(
     },
     text: {
       type: String,
-      required: [true, "Message text is required"],
+      // A picture or file may be sent without any words.
+      required: [
+        function () {
+          return !(this.attachment && this.attachment.id);
+        },
+        "Message text is required",
+      ],
       trim: true,
       maxlength: [2000, "Message cannot exceed 2000 characters"],
+    },
+    // A picture or file sent with this message (the bytes live in Attachment).
+    attachment: {
+      type: new mongoose.Schema(
+        {
+          id: { type: mongoose.Schema.Types.ObjectId, ref: "Attachment" },
+          name: { type: String },
+          mime: { type: String },
+          kind: { type: String },
+          size: { type: Number },
+        },
+        { _id: false }
+      ),
+      default: undefined,
     },
     // The message this one answers (a "reply"), or null.
     replyTo: {

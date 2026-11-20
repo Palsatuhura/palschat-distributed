@@ -8,6 +8,9 @@ const {
   makeAdmin,
   removeAdmin,
 } = require("../controllers/groupController");
+const { uploadAttachment, downloadAttachment } = require("../controllers/attachmentController");
+const { uploadLimiter } = require("../middleware/rateLimiter");
+const { MAX_ATTACHMENT_BYTES } = require("../utils/constants");
 const { clearChat, deleteChat, setPrefs } = require("../controllers/chatController");
 const { protect } = require("../middleware/auth");
 
@@ -40,6 +43,16 @@ router.delete("/:id/admins/:userId", removeAdmin);
 router.post("/:id/clear", clearChat);
 // POST   /api/conversations/:id/prefs   — pin / mute / archive, for me only
 router.post("/:id/prefs", setPrefs);
+
+// Pictures and files. The body is the raw file, so these two routes get their
+// own parser with a size limit (the rest of the API only takes small JSON).
+router.post(
+  "/:id/attachments",
+  uploadLimiter,
+  express.raw({ type: () => true, limit: MAX_ATTACHMENT_BYTES }),
+  uploadAttachment
+);
+router.get("/:id/attachments/:attachmentId", downloadAttachment);
 router.delete("/:id", deleteChat);
 
 // GET  /api/conversations/:id/messages — fetch message history

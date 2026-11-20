@@ -285,6 +285,15 @@ const registerLimiter = createRateLimiter({
   message: "Too many accounts created from this network. Please try again later.",
 });
 
+// Uploads of pictures and files, per person.
+const uploadLimiter = createRateLimiter({
+  name: "upload",
+  windowMs: 10 * MINUTE,
+  max: intFromEnv("RATE_LIMIT_UPLOAD_MAX", 30),
+  message: "You are sending files too quickly. Please wait a few minutes.",
+  keyFn: (req) => String(req.user?._id || ipKey(req.ip)),
+});
+
 // Blanket limit for every other API route.
 const apiLimiter = createRateLimiter({
   name: "api",
@@ -304,5 +313,6 @@ module.exports = {
   loginAccountLimiter,
   registerLimiter,
   passwordChangeLimiter,
+  uploadLimiter,
   apiLimiter,
 };

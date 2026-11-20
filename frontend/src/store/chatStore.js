@@ -147,9 +147,9 @@ const useChatStore = create((set, get) => ({
     set((state) => {
       const wipe = (m) => {
         if (!m) return m;
-        if (m._id === messageId) return { ...m, text: "", deletedAt };
+        if (m._id === messageId) return { ...m, text: "", attachment: null, deletedAt };
         if (m.replyTo && m.replyTo._id === messageId) {
-          return { ...m, replyTo: { ...m.replyTo, text: "", deletedAt } };
+          return { ...m, replyTo: { ...m.replyTo, text: "", attachment: null, deletedAt } };
         }
         return m;
       };

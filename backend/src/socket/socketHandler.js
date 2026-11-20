@@ -1,6 +1,7 @@
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const User = require("../models/User");
+const Attachment = require("../models/Attachment");
 const { authenticate, AuthFailure } = require("../utils/authenticate");
 const { sessionRoom } = require("../utils/sessionService");
 const { createEventLimiter } = require("../utils/eventLimiter");
@@ -560,7 +561,19 @@ const socketHandler = (io, presenceClient) => {
           const conversationId =
             data?.conversationId;
 
-          const text = data?.text;
+          // The words are optional when a picture or file is attached.
+          const attachmentId =
+            data?.attachment;
+          const hasAttachment =
+            attachmentId !== undefined &&
+            attachmentId !== null;
+          const text =
+            typeof data?.text === "string"
+              ? data.text
+              : data?.text === undefined ||
+                  data?.text === null
+                ? ""
+                : null;
 
           // Always the authenticated user, never a client-supplied id.
           const senderId =
@@ -570,8 +583,13 @@ const socketHandler = (io, presenceClient) => {
             !isValidObjectId(
               conversationId
             ) ||
-            typeof text !== "string" ||
-            !text.trim()
+            text === null ||
+            (hasAttachment &&
+              !isValidObjectId(
+                attachmentId
+              )) ||
+            (!hasAttachment &&
+              !text.trim())
           ) {
             fail("Invalid message data");
 
@@ -679,15 +697,77 @@ const socketHandler = (io, presenceClient) => {
             replyTo = quoted._id;
           }
 
-          const message =
-            await Message.create({
-              conversation:
-                conversationId,
-              sender: senderId,
-              text: text.trim(),
-              replyTo,
-              readBy: [senderId],
-            });
+          // Claim the uploaded file: it must be MY upload, to THIS chat,
+          // and not already used by another message.
+          let attachment;
+          if (hasAttachment) {
+            const claimed =
+              await Attachment.findOneAndUpdate(
+                {
+                  _id: attachmentId,
+                  conversation:
+                    conversationId,
+                  uploader: senderId,
+                  used: false,
+                },
+                {
+                  $set: { used: true },
+                  $unset: {
+                    expireAt: 1,
+                  },
+                },
+                { new: true }
+              ).select(
+                "name mime kind size"
+              );
+
+            if (!claimed) {
+              fail(
+                "That file is no longer available. Please attach it again."
+              );
+
+              return;
+            }
+
+            attachment = {
+              id: claimed._id,
+              name: claimed.name,
+              mime: claimed.mime,
+              kind: claimed.kind,
+              size: claimed.size,
+            };
+          }
+
+          let message;
+          try {
+            message =
+              await Message.create({
+                conversation:
+                  conversationId,
+                sender: senderId,
+                text: text.trim(),
+                replyTo,
+                attachment,
+                readBy: [senderId],
+              });
+          } catch (createError) {
+            if (attachment) {
+              // Give the file back so the sender can try again.
+              await Attachment.updateOne(
+                { _id: attachment.id },
+                {
+                  $set: {
+                    used: false,
+                    expireAt: new Date(
+                      Date.now() +
+                        60 * 60 * 1000
+                    ),
+                  },
+                }
+              ).catch(() => {});
+            }
+            throw createError;
+          }
 
           await message.populate(
             "sender",
@@ -697,7 +777,7 @@ const socketHandler = (io, presenceClient) => {
           if (replyTo) {
             await message.populate({
               path: "replyTo",
-              select: "text sender deletedAt",
+              select: "text sender deletedAt attachment",
               populate: {
                 path: "sender",
                 select: "name",

@@ -52,6 +52,7 @@ const stub = (rel, exports) => {
 };
 stub("src/models/Conversation.js", Conversation);
 stub("src/models/Message.js", Message);
+stub("src/models/Attachment.js", { deleteMany: async () => {}, deleteOne: async () => {} });
 stub("src/models/User.js", User);
 const g = require(path.join(root, "src/controllers/groupController.js"));
 

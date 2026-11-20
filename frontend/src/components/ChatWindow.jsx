@@ -8,6 +8,8 @@ import UserAvatar from "./UserAvatar";
 import InfoPanel from "./InfoPanel";
 import GroupAvatar from "./GroupAvatar";
 import ConfirmDialog from "./ConfirmDialog";
+import { ACCEPT, formatSize, previewText } from "../lib/attachmentInfo";
+import { prepareFile, uploadAttachment } from "../lib/attachments";
 
 /**
  * ChatWindow
@@ -60,6 +62,9 @@ const ChatWindow = ({ onMenuClick }) => {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState("");
   const [replyingTo, setReplyingTo] = useState(null);
+  const [pendingFile, setPendingFile] = useState(null); // { blob, name, uploaded? }
+  const [uploadPercent, setUploadPercent] = useState(null);
+  const fileInputRef = useRef(null);
   const [pendingDelete, setPendingDelete] = useState(null); // { message, scope }
 
   // Ref to the messages container for auto-scroll
@@ -284,11 +289,11 @@ const ChatWindow = ({ onMenuClick }) => {
   // The server confirms every message (an "acknowledgement"). The text stays
   // in the box until that confirmation arrives, so a failed send is never
   // lost and can simply be sent again.
-  const handleSend = () => {
+  const handleSend = async () => {
     const text = inputText.trim();
 
     if (
-      !text ||
+      (!text && !pendingFile) ||
       !activeConversation ||
       isSending
     ) {
@@ -324,6 +329,29 @@ const ChatWindow = ({ onMenuClick }) => {
       isTypingRef.current = false;
     }
 
+    // A picture or file goes up first; the message then names it. If sending
+    // fails afterwards, the upload is kept so a retry does not repeat it.
+    let attachmentId = pendingFile?.uploaded?.id;
+    if (pendingFile && !attachmentId) {
+      try {
+        setUploadPercent(0);
+        const uploaded = await uploadAttachment(
+          conversationId,
+          pendingFile.blob,
+          pendingFile.name,
+          setUploadPercent
+        );
+        attachmentId = uploaded.id;
+        setPendingFile((p) => (p ? { ...p, uploaded } : p));
+      } catch (err) {
+        setSendError(err.response?.data?.message || "The file could not be uploaded. Please try again.");
+        setIsSending(false);
+        setUploadPercent(null);
+        return;
+      }
+      setUploadPercent(null);
+    }
+
     // timeout(): if the server never answers, the callback receives an error
     // instead of waiting forever.
     socket
@@ -333,6 +361,7 @@ const ChatWindow = ({ onMenuClick }) => {
         {
           conversationId,
           text,
+          ...(attachmentId ? { attachment: attachmentId } : {}),
           ...(replyingTo ? { replyTo: replyingTo._id } : {}),
         },
         (error, response) => {
@@ -355,6 +384,7 @@ const ChatWindow = ({ onMenuClick }) => {
           // Clear the box, unless the user already started typing something else.
           setInputText((current) => (current === text ? "" : current));
           setReplyingTo(null);
+          setPendingFile(null);
 
           // Show it right away if its conversation is still open (the same
           // message also arrives via receive_message; the store drops the copy).
@@ -425,7 +455,22 @@ const ChatWindow = ({ onMenuClick }) => {
   useEffect(() => {
     setReplyingTo(null);
     setPendingDelete(null);
+    setPendingFile(null);
+    setUploadPercent(null);
   }, [activeConversation?._id]);
+
+  const chooseFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow choosing the same file again
+    if (!file) return;
+    setSendError("");
+    try {
+      const { blob, name } = await prepareFile(file);
+      setPendingFile({ blob, name });
+    } catch (err) {
+      setSendError(err.message || "Could not use that file.");
+    }
+  };
 
   const runDeleteMessage = async () => {
     if (!pendingDelete || !activeConversation) return;
@@ -735,7 +780,7 @@ const ChatWindow = ({ onMenuClick }) => {
                 Replying to{" "}
                 {replyingTo.sender?._id === user?._id ? "yourself" : replyingTo.sender?.name}
               </p>
-              <p className="text-gray-500 truncate">{replyingTo.text}</p>
+              <p className="text-gray-500 truncate">{previewText(replyingTo)}</p>
             </div>
             <button
               type="button"
@@ -749,12 +794,54 @@ const ChatWindow = ({ onMenuClick }) => {
             </button>
           </div>
         )}
+        {pendingFile && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs">
+            <span aria-hidden="true">📎</span>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-gray-700 truncate">{pendingFile.name}</p>
+              <p className="text-gray-500">
+                {formatSize(pendingFile.blob.size)}
+                {uploadPercent !== null && ` · Uploading ${uploadPercent}%`}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Remove file"
+              disabled={isSending}
+              onClick={() => setPendingFile(null)}
+              className="p-1 rounded-full hover:bg-gray-200 text-gray-500 disabled:opacity-40"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
         {sendError && (
           <p role="alert" className="text-xs text-red-600 mb-2 ml-4">
             {sendError}
           </p>
         )}
         <div className="flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPT}
+            className="hidden"
+            onChange={chooseFile}
+          />
+          <button
+            type="button"
+            aria-label="Attach a picture or file"
+            title="Attach a picture or file"
+            disabled={isSending}
+            onClick={() => fileInputRef.current?.click()}
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+          </button>
           <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 flex items-end gap-2">
             <textarea
               ref={textareaRef}
@@ -764,7 +851,7 @@ const ChatWindow = ({ onMenuClick }) => {
                 handleTyping();
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={pendingFile ? "Add a caption (optional)..." : "Type a message..."}
               rows={1}
               className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none max-h-28 leading-relaxed"
             />
@@ -773,7 +860,7 @@ const ChatWindow = ({ onMenuClick }) => {
           {/* Send button */}
           <button
             onClick={handleSend}
-            disabled={!inputText.trim() || isSending}
+            disabled={(!inputText.trim() && !pendingFile) || isSending}
             className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 text-white disabled:text-gray-400
                        rounded-full flex items-center justify-center flex-shrink-0 shadow-sm
                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed"

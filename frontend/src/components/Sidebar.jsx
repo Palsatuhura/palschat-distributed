@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { format, isToday } from "date-fns";
+import { previewText } from "../lib/attachmentInfo";
+import { clearAttachmentCache } from "../lib/attachments";
 import api from "../lib/axios";
 import useAuthStore from "../store/authStore";
 import useChatStore from "../store/chatStore";
@@ -130,7 +132,8 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
     const msg = conv.lastMessage;
     if (msg.deletedAt) return "This message was deleted";
     const senderName = msg.sender?._id === user?._id ? "You" : msg.sender?.name?.split(" ")[0];
-    return `${senderName}: ${msg.text?.substring(0, 35)}${msg.text?.length > 35 ? "..." : ""}`;
+    const body = previewText(msg);
+    return `${senderName}: ${body.substring(0, 35)}${body.length > 35 ? "..." : ""}`;
   };
 
   // Filter conversations by search term; archived chats live in their own
@@ -174,6 +177,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
     // Forget the previous user's conversations and messages, so the next
     // login in this browser starts clean.
     useChatStore.getState().resetChat();
+    clearAttachmentCache();
 
     // Clear the authenticated user.
     logout();

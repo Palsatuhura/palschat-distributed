@@ -85,6 +85,7 @@ const corsOptions = {
   allowedHeaders: [
     "Content-Type",
     "Authorization",
+    "X-File-Name",
   ],
   credentials: true,
 };
