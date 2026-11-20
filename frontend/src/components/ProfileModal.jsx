@@ -58,12 +58,12 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
+        className="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-6"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Your profile"
       >
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Your profile</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">Your profile</h2>
 
         <div className="flex flex-col items-center gap-3">
           <UserAvatar user={{ ...user, avatar }} size="xl" showStatus={false} />
@@ -71,7 +71,7 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="px-3 py-1.5 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
+              className="px-3 py-1.5 text-sm rounded-lg bg-brand-soft text-brand-text hover:bg-brand-soft"
             >
               Change picture
             </button>
@@ -79,7 +79,7 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
               <button
                 type="button"
                 onClick={() => setAvatar("")}
-                className="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                className="px-3 py-1.5 text-sm rounded-lg bg-surface-3 text-ink-2 hover:bg-surface-4"
               >
                 Remove
               </button>
@@ -94,7 +94,7 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
           />
         </div>
 
-        <label className="block text-sm font-medium text-gray-700 mt-4 mb-1" htmlFor="profile-name">
+        <label className="block text-sm font-medium text-ink-2 mt-4 mb-1" htmlFor="profile-name">
           Name
         </label>
         <input
@@ -103,11 +103,11 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
           maxLength={50}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
         />
-        <p className="text-xs text-gray-400 mt-1">Email: {user?.email} (cannot be changed here)</p>
+        <p className="text-xs text-ink-4 mt-1">Email: {user?.email} (cannot be changed here)</p>
 
-        <label className="block text-sm font-medium text-gray-700 mt-3 mb-1" htmlFor="about">
+        <label className="block text-sm font-medium text-ink-2 mt-3 mb-1" htmlFor="about">
           About
         </label>
         <textarea
@@ -117,17 +117,17 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
           value={about}
           onChange={(e) => setAbout(e.target.value)}
           placeholder="Say something about yourself"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand resize-none"
         />
-        <p className="text-right text-xs text-gray-400">{about.length}/{MAX_ABOUT}</p>
+        <p className="text-right text-xs text-ink-4">{about.length}/{MAX_ABOUT}</p>
 
-        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+        {error && <p className="text-sm text-danger-text mt-2">{error}</p>}
 
         {onOpenSecurity && (
           <button
             type="button"
             onClick={onOpenSecurity}
-            className="mt-3 text-sm text-blue-600 hover:text-blue-700"
+            className="mt-3 text-sm text-brand-text hover:text-brand-text"
           >
             Password and devices
           </button>
@@ -137,7 +137,7 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg text-gray-600 hover:bg-gray-100"
+            className="px-4 py-2 text-sm rounded-lg text-ink-2 hover:bg-surface-3"
           >
             Cancel
           </button>
@@ -145,7 +145,7 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
             type="button"
             onClick={handleSave}
             disabled={busy}
-            className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300"
+            className="px-4 py-2 text-sm rounded-lg bg-brand text-white hover:bg-brand-hover disabled:bg-brand/50"
           >
             {busy ? "Saving..." : "Save"}
           </button>

@@ -80,18 +80,18 @@ const MessageBubble = ({
       )}
 
       {/* Bubble */}
-      <div className={`max-w-[70%] ${isOwnMessage ? "items-end" : "items-start"} flex flex-col`}>
+      <div className={`max-w-[80%] md:max-w-[70%] min-w-0 ${isOwnMessage ? "items-end" : "items-start"} flex flex-col`}>
         {/* Sender name — only for group chats, first message in sequence */}
         {isGroup && !isOwnMessage && !isSameSenderAsPrevious && (
-          <span className="text-xs text-gray-500 font-medium mb-1 ml-3">
+          <span className="text-xs text-ink-3 font-medium mb-1 ml-3">
             {senderProfile?.name || message.sender?.name}
           </span>
         )}
 
-        <div className={`relative px-4 py-2 rounded-2xl text-sm leading-relaxed
+        <div className={`relative max-w-full px-4 py-2 rounded-2xl text-sm leading-relaxed
           ${isOwnMessage
-            ? "bg-blue-600 text-white rounded-br-sm"
-            : "bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm"
+            ? "bg-brand text-white rounded-br-sm"
+            : "bg-surface text-ink shadow-sm border border-line rounded-bl-sm"
           }`}
         >
           {/* Message actions */}
@@ -104,7 +104,7 @@ const MessageBubble = ({
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen((v) => !v)}
                 className={`w-5 h-5 rounded-full flex items-center justify-center opacity-50 hover:opacity-100 ${
-                  isOwnMessage ? "text-blue-100 hover:bg-blue-500" : "text-gray-500 hover:bg-gray-100"
+                  isOwnMessage ? "text-white/80 hover:bg-brand-hover" : "text-ink-3 hover:bg-surface-3"
                 }`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -116,13 +116,13 @@ const MessageBubble = ({
                   <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
                   <div
                     role="menu"
-                    className={`absolute top-6 ${isOwnMessage ? "right-0" : "left-0"} w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 text-gray-700`}
+                    className={`absolute top-6 ${isOwnMessage ? "right-0" : "left-0"} w-48 bg-surface border border-line rounded-lg shadow-lg z-20 py-1 text-ink-2`}
                   >
                     {onReply && !isDeleted && (
                       <button
                         role="menuitem"
                         type="button"
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-surface-2"
                         onClick={() => {
                           setMenuOpen(false);
                           onReply(message);
@@ -135,7 +135,7 @@ const MessageBubble = ({
                       <button
                         role="menuitem"
                         type="button"
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-surface-2"
                         onClick={() => {
                           setMenuOpen(false);
                           onDelete(message, "me");
@@ -148,7 +148,7 @@ const MessageBubble = ({
                       <button
                         role="menuitem"
                         type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        className="w-full text-left px-4 py-2 text-sm text-danger-text hover:bg-danger-soft"
                         onClick={() => {
                           setMenuOpen(false);
                           onDelete(message, "everyone");
@@ -166,10 +166,10 @@ const MessageBubble = ({
           {/* The message this one replies to */}
           {quoted && (
             <div
-              className={`mb-1 mr-4 rounded-lg border-l-4 px-2 py-1 text-xs ${
+              className={`mb-1 mr-4 overflow-hidden rounded-lg border-l-4 px-2 py-1 text-xs ${
                 isOwnMessage
-                  ? "bg-blue-700/60 border-blue-200 text-blue-100"
-                  : "bg-gray-100 border-blue-400 text-gray-600"
+                  ? "bg-brand-hover/60 border-brand/40 text-white/80"
+                  : "bg-surface-3 border-brand text-ink-2"
               }`}
             >
               <p className="font-semibold truncate">{quotedName || "Deleted user"}</p>
@@ -181,7 +181,7 @@ const MessageBubble = ({
 
           {/* Message text */}
           {isDeleted ? (
-            <p className={`italic ${isOwnMessage ? "text-blue-100" : "text-gray-400"}`}>
+            <p className={`italic ${isOwnMessage ? "text-white/80" : "text-ink-4"}`}>
               This message was deleted
             </p>
           ) : (
@@ -201,7 +201,7 @@ const MessageBubble = ({
 
           {/* Timestamp + read receipt */}
           <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
-            <span className={`text-[10px] ${isOwnMessage ? "text-blue-200" : "text-gray-400"}`}>
+            <span className={`text-[10px] ${isOwnMessage ? "text-white/70" : "text-ink-4"}`}>
               {formatMessageTime(message.createdAt)}
             </span>
 
@@ -209,7 +209,7 @@ const MessageBubble = ({
             {isOwnMessage && (
               <svg
                 className={`w-3.5 h-3.5 ${
-                  isRead ? "text-green-400" : isDelivered ? "text-blue-100" : "text-blue-300/70"
+                  isRead ? "text-emerald-300" : isDelivered ? "text-white/80" : "text-white/50"
                 }`}
                 fill="currentColor"
                 viewBox="0 0 16 16"

@@ -124,7 +124,7 @@ const SecurityModal = ({ onClose }) => {
   };
 
   const input =
-    "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+    "w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
 
   return (
     <div
@@ -132,17 +132,17 @@ const SecurityModal = ({ onClose }) => {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[88vh] overflow-y-auto p-6"
+        className="bg-surface rounded-2xl shadow-xl w-full max-w-sm max-h-[88vh] overflow-y-auto p-6"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Password and devices"
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Password and devices</h2>
+          <h2 className="text-lg font-semibold text-ink">Password and devices</h2>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="p-1 rounded-full hover:bg-gray-100 text-gray-500"
+            className="p-1 rounded-full hover:bg-surface-3 text-ink-3"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -150,7 +150,7 @@ const SecurityModal = ({ onClose }) => {
           </button>
         </div>
 
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">Change password</h3>
+        <h3 className="text-sm font-semibold text-ink-2 mb-2">Change password</h3>
         <form onSubmit={changePassword} className="space-y-2">
           <input
             type="password"
@@ -179,40 +179,40 @@ const SecurityModal = ({ onClose }) => {
             onChange={(e) => setConfirmPassword(e.target.value)}
             className={input}
           />
-          {pwError && <p className="text-sm text-red-600">{pwError}</p>}
-          {pwDone && <p className="text-sm text-green-600">{pwDone}</p>}
+          {pwError && <p className="text-sm text-danger-text">{pwError}</p>}
+          {pwDone && <p className="text-sm text-success-text">{pwDone}</p>}
           <button
             type="submit"
             disabled={pwBusy}
-            className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300"
+            className="px-4 py-2 text-sm rounded-lg bg-brand text-white hover:bg-brand-hover disabled:bg-brand/50"
           >
             {pwBusy ? "Saving..." : "Change password"}
           </button>
         </form>
 
-        <h3 className="text-sm font-semibold text-gray-700 mt-6 mb-2">Where you are signed in</h3>
-        {listError && <p className="text-sm text-red-600 mb-2">{listError}</p>}
-        {sessions === null && !listError && <p className="text-sm text-gray-400">Loading...</p>}
-        <ul className="divide-y divide-gray-100">
+        <h3 className="text-sm font-semibold text-ink-2 mt-6 mb-2">Where you are signed in</h3>
+        {listError && <p className="text-sm text-danger-text mb-2">{listError}</p>}
+        {sessions === null && !listError && <p className="text-sm text-ink-4">Loading...</p>}
+        <ul className="divide-y divide-line">
           {(sessions || []).map((s) => (
             <li key={s.id} className="flex items-center gap-3 py-2">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-ink truncate">
                   {s.device}
                   {s.current && (
-                    <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+                    <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-success-text bg-success-soft border border-success-line rounded px-1.5 py-0.5">
                       This device
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-gray-500">Active {ago(s.lastSeenAt)}</p>
+                <p className="text-xs text-ink-3">Active {ago(s.lastSeenAt)}</p>
               </div>
               {!s.current && (
                 <button
                   type="button"
                   disabled={busyId === s.id}
                   onClick={() => removeDevice(s)}
-                  className="text-xs text-red-600 hover:text-red-700 disabled:text-gray-400"
+                  className="text-xs text-danger-text hover:text-danger-text disabled:text-ink-4"
                 >
                   Sign out
                 </button>
@@ -225,13 +225,13 @@ const SecurityModal = ({ onClose }) => {
           type="button"
           onClick={signOutEverywhere}
           disabled={busyId === "all"}
-          className="w-full mt-5 px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:text-gray-400"
+          className="w-full mt-5 px-4 py-2 text-sm rounded-lg border border-danger-line text-danger-text hover:bg-danger-soft disabled:text-ink-4"
         >
           Sign out of all devices
         </button>
 
-        <h3 className="text-sm font-semibold text-red-700 mt-6 mb-1">Delete my account</h3>
-        <p className="text-xs text-gray-500 mb-2">
+        <h3 className="text-sm font-semibold text-danger-text mt-6 mb-1">Delete my account</h3>
+        <p className="text-xs text-ink-3 mb-2">
           This cannot be undone. You leave all groups and are signed out everywhere. Your old
           messages stay for the other people, shown as "Deleted user".
         </p>
@@ -241,7 +241,7 @@ const SecurityModal = ({ onClose }) => {
             setDeleteError("");
             setShowDelete(true);
           }}
-          className="w-full px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700"
+          className="w-full px-4 py-2 text-sm rounded-lg bg-danger text-white hover:bg-danger-hover"
         >
           Delete my account
         </button>

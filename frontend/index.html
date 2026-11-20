@@ -4,7 +4,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/chat-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ChatApp — Real-time Chat</title>
+    <meta name="theme-color" content="#ffffff" />
+    <title>PalsChat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Apply the saved theme before the page paints, so there is no flash. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("palschat.theme");
+          var a = localStorage.getItem("palschat.accent");
+          var dark =
+            t === "dark" ||
+            (t !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+          if (a && a !== "blue") document.documentElement.setAttribute("data-accent", a);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

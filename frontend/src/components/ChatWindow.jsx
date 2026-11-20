@@ -8,6 +8,7 @@ import UserAvatar from "./UserAvatar";
 import InfoPanel from "./InfoPanel";
 import GroupAvatar from "./GroupAvatar";
 import ConfirmDialog from "./ConfirmDialog";
+import { dayLabel, isSameDay } from "../lib/dayLabel";
 import { ACCEPT, formatSize, previewText } from "../lib/attachmentInfo";
 import { prepareFile, uploadAttachment } from "../lib/attachments";
 
@@ -523,15 +524,15 @@ const ChatWindow = ({ onMenuClick }) => {
   // ─── Empty state ───────────────────────────────────────────────────────
   if (!activeConversation) {
     return (
-      <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-gray-50 text-center px-4">
-        <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-          <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-surface-2 text-center px-4">
+        <div className="w-24 h-24 bg-brand-soft rounded-3xl flex items-center justify-center mb-5 shadow-soft">
+          <svg className="w-12 h-12 text-brand-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         </div>
-        <h3 className="text-xl font-semibold text-gray-700">Your messages</h3>
-        <p className="text-gray-400 text-sm mt-1 max-w-xs">
+        <h3 className="text-2xl font-semibold text-ink tracking-tight">Your messages</h3>
+        <p className="text-ink-4 text-sm mt-1 max-w-xs">
           Select a conversation from the sidebar or go to People to start a new chat.
         </p>
       </div>
@@ -539,14 +540,14 @@ const ChatWindow = ({ onMenuClick }) => {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
+    <div className="flex-1 flex flex-col bg-surface-2 min-w-0">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shadow-sm">
+      <div className="flex items-center gap-3 px-4 py-3 bg-surface/90 backdrop-blur border-b border-line">
         {/* Mobile back button: returns to the chat list */}
         <button
           onClick={onMenuClick}
           aria-label="Back to chats"
-          className="md:hidden p-2 -ml-2 hover:bg-gray-100 rounded-full text-gray-500"
+          className="md:hidden p-2 -ml-2 hover:bg-surface-3 rounded-full text-ink-3"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -558,7 +559,7 @@ const ChatWindow = ({ onMenuClick }) => {
           type="button"
           onClick={() => setShowInfo(true)}
           aria-label={activeConversation.isGroup ? "Group info" : "Contact info"}
-          className="flex flex-1 min-w-0 items-center gap-3 text-left rounded-lg hover:bg-gray-50 -my-1 py-1 px-1"
+          className="flex flex-1 min-w-0 items-center gap-3 text-left rounded-lg hover:bg-surface-2 -my-1 py-1 px-1"
         >
         {/* Avatar */}
         {activeConversation.isGroup ? (
@@ -569,13 +570,13 @@ const ChatWindow = ({ onMenuClick }) => {
 
         {/* Name + status */}
         <div className="flex-1 min-w-0">
-          <h2 className="font-semibold text-gray-900 truncate">{conversationName}</h2>
+          <h2 className="font-semibold text-ink truncate">{conversationName}</h2>
           {activeConversation.isGroup ? (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-ink-3">
               {activeConversation.participants?.length} members
             </p>
           ) : (
-            <p className={`text-xs font-medium ${isOtherOnline ? "text-green-500" : "text-gray-400"}`}>
+            <p className={`text-xs font-medium ${isOtherOnline ? "text-success-text" : "text-ink-4"}`}>
               {isOtherOnline ? "Online" : "Offline"}
             </p>
           )}
@@ -590,7 +591,7 @@ const ChatWindow = ({ onMenuClick }) => {
             aria-label="Chat options"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="p-2 hover:bg-gray-100 rounded-full text-gray-500"
+            className="p-2 hover:bg-surface-3 rounded-full text-ink-3"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
@@ -601,7 +602,7 @@ const ChatWindow = ({ onMenuClick }) => {
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div
                 role="menu"
-                className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1"
+                className="absolute right-0 mt-1 w-44 bg-surface border border-line rounded-lg shadow-lg z-20 py-1"
               >
                 <button
                   role="menuitem"
@@ -610,7 +611,7 @@ const ChatWindow = ({ onMenuClick }) => {
                     setMenuOpen(false);
                     setShowInfo(true);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full text-left px-4 py-2 text-sm text-ink-2 hover:bg-surface-2"
                 >
                   {activeConversation.isGroup ? "Group info" : "Contact info"}
                 </button>
@@ -621,7 +622,7 @@ const ChatWindow = ({ onMenuClick }) => {
                     setMenuOpen(false);
                     savePref({ pinned: !activeConversation.pinned });
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full text-left px-4 py-2 text-sm text-ink-2 hover:bg-surface-2"
                 >
                   {activeConversation.pinned ? "Unpin chat" : "Pin chat"}
                 </button>
@@ -632,7 +633,7 @@ const ChatWindow = ({ onMenuClick }) => {
                     setMenuOpen(false);
                     savePref({ muted: !activeConversation.muted });
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full text-left px-4 py-2 text-sm text-ink-2 hover:bg-surface-2"
                 >
                   {activeConversation.muted ? "Unmute" : "Mute"}
                 </button>
@@ -643,7 +644,7 @@ const ChatWindow = ({ onMenuClick }) => {
                     setMenuOpen(false);
                     savePref({ archived: !activeConversation.archived });
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full text-left px-4 py-2 text-sm text-ink-2 hover:bg-surface-2"
                 >
                   {activeConversation.archived ? "Unarchive" : "Archive"}
                 </button>
@@ -660,7 +661,7 @@ const ChatWindow = ({ onMenuClick }) => {
                         setConfirmAction("block");
                       }
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    className="w-full text-left px-4 py-2 text-sm text-ink-2 hover:bg-surface-2"
                   >
                     {iBlockedThem ? "Unblock contact" : "Block contact"}
                   </button>
@@ -673,7 +674,7 @@ const ChatWindow = ({ onMenuClick }) => {
                     setActionError("");
                     setConfirmAction("clear");
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full text-left px-4 py-2 text-sm text-ink-2 hover:bg-surface-2"
                 >
                   Clear chat
                 </button>
@@ -685,7 +686,7 @@ const ChatWindow = ({ onMenuClick }) => {
                     setActionError("");
                     setConfirmAction("delete");
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  className="w-full text-left px-4 py-2 text-sm text-danger-text hover:bg-danger-soft"
                 >
                   Delete chat
                 </button>
@@ -699,11 +700,11 @@ const ChatWindow = ({ onMenuClick }) => {
       <div ref={scrollBoxRef} className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
         {isLoadingMessages ? (
           <div className="flex items-center justify-center h-full">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
           </div>
         ) : messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <p className="text-gray-400 text-sm">
+            <p className="text-ink-4 text-sm">
               No messages yet. Say hello! 👋
             </p>
           </div>
@@ -714,24 +715,32 @@ const ChatWindow = ({ onMenuClick }) => {
                 <button
                   onClick={loadOlderMessages}
                   disabled={isLoadingOlder}
-                  className="text-xs text-blue-600 hover:text-blue-700 disabled:text-gray-400 px-3 py-1 rounded-full bg-white border border-gray-200"
+                  className="text-xs text-brand-text hover:text-brand-text disabled:text-ink-4 px-3 py-1 rounded-full bg-surface border border-line"
                 >
                   {isLoadingOlder ? "Loading..." : "Load older messages"}
                 </button>
               </div>
             )}
             {messages.map((msg, idx) => (
-              <MessageBubble
-                key={msg._id}
-                message={msg}
-                isGroup={activeConversation.isGroup}
-                previousMessage={idx > 0 ? messages[idx - 1] : null}
-                onReply={isReadOnly ? undefined : (m) => setReplyingTo(m)}
-                onDelete={(m, scope) => {
-                  setActionError("");
-                  setPendingDelete({ message: m, scope });
-                }}
-              />
+              <div key={msg._id}>
+                {(idx === 0 || !isSameDay(messages[idx - 1].createdAt, msg.createdAt)) && (
+                  <div className="flex justify-center my-3">
+                    <span className="text-xs font-medium text-ink-3 bg-surface border border-line rounded-full px-3 py-1 shadow-sm">
+                      {dayLabel(msg.createdAt)}
+                    </span>
+                  </div>
+                )}
+                <MessageBubble
+                  message={msg}
+                  isGroup={activeConversation.isGroup}
+                  previousMessage={idx > 0 ? messages[idx - 1] : null}
+                  onReply={isReadOnly ? undefined : (m) => setReplyingTo(m)}
+                  onDelete={(m, scope) => {
+                    setActionError("");
+                    setPendingDelete({ message: m, scope });
+                  }}
+                />
+              </div>
             ))}
           </>
         )}
@@ -740,13 +749,13 @@ const ChatWindow = ({ onMenuClick }) => {
         {currentTypingUsers.length > 0 && (
           <div className="flex items-end gap-2 mt-3">
             <div className="w-8 h-8 opacity-0" /> {/* Spacer for alignment */}
-            <div className="bg-white border border-gray-100 shadow-sm px-4 py-2.5 rounded-2xl rounded-bl-sm">
+            <div className="bg-surface border border-line shadow-sm px-4 py-2.5 rounded-2xl rounded-bl-sm">
               <div className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                <span className="w-2 h-2 bg-ink-4 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-2 h-2 bg-ink-4 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-2 h-2 bg-ink-4 rounded-full animate-bounce" />
               </div>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-ink-4 mt-1">
                 {currentTypingUsers.map(([, name]) => name).join(", ")}{" "}
                 {currentTypingUsers.length === 1 ? "is" : "are"} typing...
               </p>
@@ -760,33 +769,33 @@ const ChatWindow = ({ onMenuClick }) => {
 
       {/* ── Input bar ── */}
       {isReadOnly ? (
-        <div className="bg-white border-t border-gray-200 px-4 py-4 text-center text-sm text-gray-500">
+        <div className="bg-surface border-t border-line px-4 py-4 text-center text-sm text-ink-3">
           This account was deleted. You can read the old messages but cannot send new ones.
         </div>
       ) : iBlockedThem ? (
-        <div className="bg-white border-t border-gray-200 px-4 py-4 text-center text-sm text-gray-500">
+        <div className="bg-surface border-t border-line px-4 py-4 text-center text-sm text-ink-3">
           You blocked {otherParticipant?.name}. Neither of you can send messages here.{" "}
-          <button type="button" onClick={unblock} className="text-blue-600 hover:text-blue-700 font-medium">
+          <button type="button" onClick={unblock} className="text-brand-text hover:text-brand-text font-medium">
             Unblock
           </button>
-          {sendError && <p className="text-xs text-red-600 mt-2">{sendError}</p>}
+          {sendError && <p className="text-xs text-danger-text mt-2">{sendError}</p>}
         </div>
       ) : (
-      <div className="bg-white border-t border-gray-200 px-4 py-3">
+      <div className="bg-surface border-t border-line px-4 py-3">
         {replyingTo && (
-          <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-gray-50 border-l-4 border-blue-400 rounded-lg text-xs">
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-surface-2 border-l-4 border-brand rounded-lg text-xs">
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-gray-700 truncate">
+              <p className="font-semibold text-ink-2 truncate">
                 Replying to{" "}
                 {replyingTo.sender?._id === user?._id ? "yourself" : replyingTo.sender?.name}
               </p>
-              <p className="text-gray-500 truncate">{previewText(replyingTo)}</p>
+              <p className="text-ink-3 truncate">{previewText(replyingTo)}</p>
             </div>
             <button
               type="button"
               aria-label="Cancel reply"
               onClick={() => setReplyingTo(null)}
-              className="p-1 rounded-full hover:bg-gray-200 text-gray-500"
+              className="p-1 rounded-full hover:bg-surface-4 text-ink-3"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -795,11 +804,11 @@ const ChatWindow = ({ onMenuClick }) => {
           </div>
         )}
         {pendingFile && (
-          <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs">
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-surface-2 border border-line rounded-lg text-xs">
             <span aria-hidden="true">📎</span>
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-gray-700 truncate">{pendingFile.name}</p>
-              <p className="text-gray-500">
+              <p className="font-medium text-ink-2 truncate">{pendingFile.name}</p>
+              <p className="text-ink-3">
                 {formatSize(pendingFile.blob.size)}
                 {uploadPercent !== null && ` · Uploading ${uploadPercent}%`}
               </p>
@@ -809,7 +818,7 @@ const ChatWindow = ({ onMenuClick }) => {
               aria-label="Remove file"
               disabled={isSending}
               onClick={() => setPendingFile(null)}
-              className="p-1 rounded-full hover:bg-gray-200 text-gray-500 disabled:opacity-40"
+              className="p-1 rounded-full hover:bg-surface-4 text-ink-3 disabled:opacity-40"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -818,7 +827,7 @@ const ChatWindow = ({ onMenuClick }) => {
           </div>
         )}
         {sendError && (
-          <p role="alert" className="text-xs text-red-600 mb-2 ml-4">
+          <p role="alert" className="text-xs text-danger-text mb-2 ml-4">
             {sendError}
           </p>
         )}
@@ -836,13 +845,13 @@ const ChatWindow = ({ onMenuClick }) => {
             title="Attach a picture or file"
             disabled={isSending}
             onClick={() => fileInputRef.current?.click()}
-            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-ink-3 hover:bg-surface-3 disabled:opacity-40"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
             </svg>
           </button>
-          <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 flex items-end gap-2">
+          <div className="flex-1 bg-surface-2 border border-line-strong rounded-2xl px-4 py-2.5 flex items-end gap-2 focus-within:ring-2 focus-within:ring-brand focus-within:border-transparent">
             <textarea
               ref={textareaRef}
               value={inputText}
@@ -853,7 +862,7 @@ const ChatWindow = ({ onMenuClick }) => {
               onKeyDown={handleKeyDown}
               placeholder={pendingFile ? "Add a caption (optional)..." : "Type a message..."}
               rows={1}
-              className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none max-h-28 leading-relaxed"
+              className="flex-1 bg-transparent text-sm text-ink placeholder-ink-4 resize-none focus:outline-none max-h-28 leading-relaxed"
             />
           </div>
 
@@ -861,18 +870,19 @@ const ChatWindow = ({ onMenuClick }) => {
           <button
             onClick={handleSend}
             disabled={(!inputText.trim() && !pendingFile) || isSending}
-            className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 text-white disabled:text-gray-400
+            aria-label="Send message"
+            className="w-10 h-10 bg-brand hover:bg-brand-hover disabled:bg-surface-4 text-white disabled:text-ink-4
                        rounded-full flex items-center justify-center flex-shrink-0 shadow-sm
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed"
+                       focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 focus:ring-offset-surface disabled:cursor-not-allowed"
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-1.5 ml-4">
-          Press <kbd className="px-1 py-0.5 bg-gray-200 rounded text-[10px]">Enter</kbd> to send,{" "}
-          <kbd className="px-1 py-0.5 bg-gray-200 rounded text-[10px]">Shift+Enter</kbd> for newline
+        <p className="hidden md:block text-xs text-ink-4 mt-1.5 ml-14">
+          Press <kbd className="px-1 py-0.5 bg-surface-4 rounded text-[10px]">Enter</kbd> to send,{" "}
+          <kbd className="px-1 py-0.5 bg-surface-4 rounded text-[10px]">Shift+Enter</kbd> for newline
         </p>
       </div>
       )}

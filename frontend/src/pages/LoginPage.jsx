@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/axios";
 import useAuthStore from "../store/authStore";
+import AuthLayout from "../components/AuthLayout";
+import PasswordInput from "../components/PasswordInput";
 import { getSessionNotice } from "../lib/sessionNotice";
 
 /**
@@ -48,42 +50,31 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back</h1>
-          <p className="text-gray-500 mt-1">Sign in to your ChatApp account</p>
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Sign in to your PalsChat account"
+      footer={<>Don&apos;t have an account?{" "}
+        <Link to="/register" className="text-brand-text hover:underline font-medium">
+          Create one
+        </Link></>}
+    >
+      {sessionNotice && (
+        <div
+          role="status"
+          className="mb-5 bg-warn-soft border border-warn-line text-warn-text px-4 py-3 rounded-xl text-sm"
+        >
+          {sessionNotice}
         </div>
+      )}
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          {sessionNotice && (
-            <div
-              role="status"
-              className="mb-5 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm"
-            >
-              {sessionNotice}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Error message */}
+      <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div role="alert" className="bg-danger-soft border border-danger-line text-danger-text px-4 py-3 rounded-xl text-sm">
                 {error}
               </div>
             )}
-
-            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-ink-2 mb-1">
                 Email address
               </label>
               <input
@@ -94,36 +85,29 @@ const LoginPage = () => {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="you@example.com"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-line-strong rounded-xl text-ink placeholder-ink-4
+                           focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               />
             </div>
-
-            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-ink-2 mb-1">
                 Password
               </label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Your password"
               />
             </div>
-
-            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold 
-                         py-2.5 px-4 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 
-                         focus:ring-offset-2 disabled:cursor-not-allowed"
+              className="w-full bg-brand hover:bg-brand-hover disabled:bg-brand/50 text-white font-semibold
+                         py-2.5 px-4 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand
+                         focus:ring-offset-2 focus:ring-offset-surface disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -138,18 +122,8 @@ const LoginPage = () => {
                 "Sign in"
               )}
             </button>
-          </form>
-
-          {/* Register link */}
-          <p className="text-center text-sm text-gray-500 mt-6">
-            Don&apos;t have an account?{" "}
-            <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-              Create one
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+      </form>
+    </AuthLayout>
   );
 };
 

@@ -13,8 +13,8 @@
 // Generates a consistent color based on the user's name
 const getAvatarColor = (name = "") => {
   const colors = [
-    "bg-blue-500", "bg-purple-500", "bg-green-500", "bg-yellow-500",
-    "bg-red-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500",
+    "bg-brand", "bg-purple-500", "bg-success", "bg-yellow-500",
+    "bg-danger", "bg-pink-500", "bg-indigo-500", "bg-teal-500",
     "bg-orange-500", "bg-cyan-500",
   ];
   const index = name.charCodeAt(0) % colors.length;
@@ -59,8 +59,8 @@ const UserAvatar = ({ user, isOnline = false, size = "md", showStatus = true }) 
       {/* Online status dot */}
       {showStatus && (
         <span
-          className={`absolute ${dotSz} rounded-full border-2 border-white 
-            ${isOnline ? "bg-green-500" : "bg-gray-400"}`}
+          className={`absolute ${dotSz} rounded-full border-2 border-surface 
+            ${isOnline ? "bg-success" : "bg-ink-4"}`}
         />
       )}
     </div>

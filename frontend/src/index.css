@@ -2,27 +2,154 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens. Every colour in the app comes from here, so light mode,
+ * dark mode and the accent colour are all switched by two things on <html>:
+ *   class="dark"        dark mode
+ *   data-accent="..."   accent colour (blue is the default)
+ * Values are "R G B" triplets so Tailwind can add opacity.
+ */
+:root {
+  color-scheme: light;
+
+  --canvas: 241 245 249;
+  --surface: 255 255 255;
+  --surface-2: 248 250 252;
+  --surface-3: 241 245 249;
+  --surface-4: 226 232 240;
+  --line: 226 232 240;
+  --line-strong: 203 213 225;
+  --ink: 15 23 42;
+  --ink-2: 51 65 85;
+  --ink-3: 100 116 139;
+  --ink-4: 148 163 184;
+
+  --brand: 37 99 235;
+  --brand-hover: 29 78 216;
+  --brand-soft: 239 246 255;
+  --brand-text: 29 78 216;
+
+  --danger: 220 38 38;
+  --danger-hover: 185 28 28;
+  --danger-soft: 254 242 242;
+  --danger-line: 254 202 202;
+  --danger-text: 185 28 28;
+
+  --success: 34 197 94;
+  --success-soft: 240 253 244;
+  --success-line: 187 247 208;
+  --success-text: 21 128 61;
+
+  --warn-soft: 255 251 235;
+  --warn-line: 253 230 138;
+  --warn-text: 146 64 14;
+
+  --shadow: 15 23 42;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --canvas: 2 6 23;
+  --surface: 15 23 42;
+  --surface-2: 11 17 32;
+  --surface-3: 30 41 59;
+  --surface-4: 51 65 85;
+  --line: 30 41 59;
+  --line-strong: 51 65 85;
+  --ink: 241 245 249;
+  --ink-2: 203 213 225;
+  --ink-3: 148 163 184;
+  --ink-4: 100 116 139;
+
+  --brand-soft: 23 37 84;
+  --brand-text: 147 197 253;
+
+  --danger-soft: 69 10 10;
+  --danger-line: 127 29 29;
+  --danger-text: 252 165 165;
+
+  --success-soft: 5 46 22;
+  --success-line: 22 101 52;
+  --success-text: 134 239 172;
+
+  --warn-soft: 69 26 3;
+  --warn-line: 120 53 15;
+  --warn-text: 252 211 77;
+
+  --shadow: 0 0 0;
+}
+
+/* Accent colours (light, then dark adjustments) */
+:root[data-accent="violet"] { --brand: 124 58 237; --brand-hover: 109 40 217; --brand-soft: 245 243 255; --brand-text: 109 40 217; }
+:root[data-accent="emerald"] { --brand: 5 150 105; --brand-hover: 4 120 87; --brand-soft: 236 253 245; --brand-text: 4 120 87; }
+:root[data-accent="rose"] { --brand: 225 29 72; --brand-hover: 190 18 60; --brand-soft: 255 241 242; --brand-text: 190 18 60; }
+:root[data-accent="amber"] { --brand: 217 119 6; --brand-hover: 180 83 9; --brand-soft: 255 251 235; --brand-text: 180 83 9; }
+
+:root.dark[data-accent="violet"] { --brand-soft: 46 16 101; --brand-text: 196 181 253; }
+:root.dark[data-accent="emerald"] { --brand-soft: 2 44 34; --brand-text: 110 231 183; }
+:root.dark[data-accent="rose"] { --brand-soft: 76 5 25; --brand-text: 253 164 175; }
+:root.dark[data-accent="amber"] { --brand-soft: 69 26 3; --brand-text: 252 211 77; }
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+  }
+  ::selection {
+    background: rgb(var(--brand) / 0.25);
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: 2px;
+  }
+  input,
+  textarea,
+  select {
+    background-color: rgb(var(--surface));
+    color: rgb(var(--ink));
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: rgb(var(--ink-4));
+  }
+  /* Inputs draw their own focus ring */
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+  }
+}
+
 /* Custom scrollbar for chat window */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: rgb(var(--line-strong)) transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
-    border-radius: 2px;
+    background-color: rgb(var(--line-strong));
+    border-radius: 3px;
   }
 }
 
-/* Smooth transitions for all interactive elements */
+/* Smooth colour changes when the theme or a hover state changes */
 * {
-  transition-property: background-color, border-color, color, opacity;
+  transition-property: background-color, border-color, color, opacity, box-shadow;
   transition-duration: 150ms;
   transition-timing-function: ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

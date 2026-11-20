@@ -9,6 +9,7 @@ import UserAvatar from "./UserAvatar";
 import CreateGroupModal from "./CreateGroupModal";
 import ProfileModal from "./ProfileModal";
 import SecurityModal from "./SecurityModal";
+import SettingsModal from "./SettingsModal";
 import GroupAvatar from "./GroupAvatar";
 import socket from "../lib/socket";
 
@@ -56,6 +57,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showSecurity, setShowSecurity] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingConvs, setIsLoadingConvs] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -198,23 +200,23 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
       {/* Sidebar panel */}
       <aside className={`
         fixed md:relative z-30 md:z-auto
-        w-full md:w-80 h-full flex flex-col bg-white border-r border-gray-200
+        w-full md:w-80 h-full flex flex-col bg-surface border-r border-line
         transition-transform duration-300 ease-in-out
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
       `}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 py-4 border-b border-line">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setShowProfile(true)}
               title="Edit your profile"
-              className="flex items-center gap-3 text-left rounded-lg hover:bg-gray-50 -m-1 p-1"
+              className="flex items-center gap-3 text-left rounded-lg hover:bg-surface-2 -m-1 p-1"
             >
               <UserAvatar user={user} isOnline={true} size="md" />
               <div>
-                <p className="font-semibold text-gray-900 text-sm leading-tight">{user?.name}</p>
-                <p className="text-xs text-green-500 font-medium">Online</p>
+                <p className="font-semibold text-ink text-sm leading-tight">{user?.name}</p>
+                <p className="text-xs text-success-text font-medium">Online</p>
               </div>
             </button>
           </div>
@@ -223,18 +225,31 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
             <button
               onClick={() => setShowGroupModal(true)}
               title="Create group"
-              className="p-2 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-700"
+              className="p-2 hover:bg-surface-3 rounded-full text-ink-3 hover:text-ink-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </button>
+            {/* Settings button */}
+            <button
+              onClick={() => setShowSettings(true)}
+              title="Settings"
+              aria-label="Settings"
+              className="p-2 hover:bg-surface-3 rounded-full text-ink-3 hover:text-ink-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
             {/* Logout button */}
             <button
               onClick={handleLogout}
               title="Logout"
-              className="p-2 hover:bg-red-50 rounded-full text-gray-500 hover:text-red-500"
+              className="p-2 hover:bg-danger-soft rounded-full text-ink-3 hover:text-danger-text"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -247,7 +262,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
         {/* Search */}
         <div className="px-4 py-3">
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -255,21 +270,23 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search..."
-              className="w-full pl-9 pr-3 py-2 bg-gray-100 border-0 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-3 py-2 bg-surface-3 border-0 rounded-xl text-sm text-ink placeholder-ink-4 focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex px-4 gap-1 mb-1">
+        <div role="tablist" className="flex mx-4 mb-2 p-1 gap-1 bg-surface-3 rounded-xl">
           {["chats", "people"].map((tab) => (
             <button
               key={tab}
+              role="tab"
+              aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 text-sm font-medium rounded-lg capitalize
+              className={`flex-1 py-1.5 text-sm font-medium rounded-lg capitalize
                 ${activeTab === tab
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-500 hover:bg-gray-100"
+                  ? "bg-surface text-ink shadow-sm"
+                  : "text-ink-3 hover:text-ink-2"
                 }`}
             >
               {tab}
@@ -278,18 +295,18 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-2">
           {/* ── Chats Tab ── */}
           {activeTab === "chats" && (
             <>
               {isLoadingConvs ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : filteredConversations.length === 0 && !showArchived && archivedCount === 0 ? (
                 <div className="text-center py-10 px-4">
-                  <p className="text-gray-400 text-sm">No conversations yet.</p>
-                  <p className="text-gray-400 text-xs mt-1">Go to People to start chatting!</p>
+                  <p className="text-ink-4 text-sm">No conversations yet.</p>
+                  <p className="text-ink-4 text-xs mt-1">Go to People to start chatting!</p>
                 </div>
               ) : (
                 <>
@@ -297,7 +314,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                   <button
                     type="button"
                     onClick={() => setShowArchived(false)}
-                    className="w-full text-left px-4 py-2 text-xs font-medium text-blue-600 hover:bg-gray-50 border-b border-gray-100"
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-brand-text hover:bg-surface-2 rounded-lg"
                   >
                     ← Back to chats
                   </button>
@@ -306,14 +323,14 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                     <button
                       type="button"
                       onClick={() => setShowArchived(true)}
-                      className="w-full text-left px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 border-b border-gray-100"
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-ink-2 hover:bg-surface-2 rounded-lg"
                     >
                       Archived ({archivedCount})
                     </button>
                   )
                 )}
                 {filteredConversations.length === 0 && (
-                  <p className="text-center text-gray-400 text-sm py-8">
+                  <p className="text-center text-ink-4 text-sm py-8">
                     {showArchived ? "No archived chats." : "No chats here. Open Archived above."}
                   </p>
                 )}
@@ -327,8 +344,8 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                     <button
                       key={conv._id}
                       onClick={() => openConversation(conv)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left
-                        ${isActive ? "bg-blue-50 border-r-2 border-blue-500" : ""}`}
+                      className={`w-full my-0.5 flex items-center gap-3 px-3 py-2.5 rounded-xl text-left
+                        ${isActive ? "bg-brand-soft" : "hover:bg-surface-2"}`}
                     >
                       {/* Avatar */}
                       {conv.isGroup ? (
@@ -340,10 +357,10 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className={`text-sm font-semibold truncate ${isActive ? "text-blue-700" : "text-gray-900"}`}>
+                          <p className={`text-sm font-semibold truncate ${isActive ? "text-brand-text" : "text-ink"}`}>
                             {getConvName(conv)}
                           </p>
-                          <span className="text-xs text-gray-400 flex-shrink-0 ml-1 flex items-center gap-1">
+                          <span className="text-xs text-ink-4 flex-shrink-0 ml-1 flex items-center gap-1">
                             {conv.muted && <span title="Muted" aria-label="Muted">🔇</span>}
                             {conv.pinned && <span title="Pinned" aria-label="Pinned">📌</span>}
                             {formatPreviewTime(conv.updatedAt)}
@@ -351,14 +368,14 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                         </div>
                         <div className="flex items-center justify-between mt-0.5">
                           {isSomeoneTyping(conv._id) ? (
-                            <p className="text-xs text-green-600 italic truncate">typing...</p>
+                            <p className="text-xs text-success-text italic truncate">typing...</p>
                           ) : (
-                            <p className="text-xs text-gray-500 truncate">{getLastMessagePreview(conv)}</p>
+                            <p className="text-xs text-ink-3 truncate">{getLastMessagePreview(conv)}</p>
                           )}
                           {unread > 0 && (
                             <span
                               className={`ml-1 flex-shrink-0 w-5 h-5 text-white text-xs rounded-full flex items-center justify-center font-medium ${
-                                conv.muted ? "bg-gray-400" : "bg-blue-600"
+                                conv.muted ? "bg-ink-4" : "bg-brand"
                               }`}
                             >
                               {unread > 9 ? "9+" : unread}
@@ -379,21 +396,21 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
             <>
               {isLoadingUsers ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : filteredUsers.length === 0 ? (
-                <p className="text-center text-gray-400 text-sm py-8">No users found</p>
+                <p className="text-center text-ink-4 text-sm py-8">No users found</p>
               ) : (
                 filteredUsers.map((u) => (
                   <button
                     key={u._id}
                     onClick={() => handleUserClick(u)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left"
+                    className="w-full my-0.5 flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-surface-2 text-left"
                   >
                     <UserAvatar user={u} isOnline={onlineUsers.has(u._id)} size="md" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{u.name}</p>
-                      <p className={`text-xs font-medium ${onlineUsers.has(u._id) ? "text-green-500" : "text-gray-400"}`}>
+                      <p className="text-sm font-semibold text-ink">{u.name}</p>
+                      <p className={`text-xs font-medium ${onlineUsers.has(u._id) ? "text-success-text" : "text-ink-4"}`}>
                         {onlineUsers.has(u._id) ? "Online" : "Offline"}
                       </p>
                     </div>
@@ -417,6 +434,23 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
         />
       )}
       {showSecurity && <SecurityModal onClose={() => setShowSecurity(false)} />}
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          onOpenProfile={() => {
+            setShowSettings(false);
+            setShowProfile(true);
+          }}
+          onOpenSecurity={() => {
+            setShowSettings(false);
+            setShowSecurity(true);
+          }}
+          onLogout={() => {
+            setShowSettings(false);
+            handleLogout();
+          }}
+        />
+      )}
     </>
   );
 };

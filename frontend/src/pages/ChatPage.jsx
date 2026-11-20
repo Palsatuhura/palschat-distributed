@@ -32,7 +32,7 @@ const ChatPage = () => {
 
   return (
     <div
-      className="h-screen flex overflow-hidden bg-gray-100"
+      className="h-screen flex overflow-hidden bg-surface-3"
       style={{ height: "100dvh" }}
     >
       {/* ── Sidebar ── */}

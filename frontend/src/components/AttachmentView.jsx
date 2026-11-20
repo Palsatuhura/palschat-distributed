@@ -95,7 +95,7 @@ const AttachmentView = ({ conversationId, attachment, isOwn }) => {
         }
       }}
       className={`flex items-center gap-2 mb-1 mr-4 px-3 py-2 rounded-lg text-left w-full max-w-[260px] ${
-        isOwn ? "bg-blue-700/60 hover:bg-blue-700" : "bg-gray-100 hover:bg-gray-200"
+        isOwn ? "bg-brand-hover/60 hover:bg-brand-hover" : "bg-surface-3 hover:bg-surface-4"
       }`}
     >
       <span className="text-xl" aria-hidden="true">📎</span>

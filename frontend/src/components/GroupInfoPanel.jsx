@@ -164,17 +164,17 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[88vh] overflow-y-auto p-6"
+        className="bg-surface rounded-2xl shadow-xl w-full max-w-sm max-h-[88vh] overflow-y-auto p-6"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Group info"
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Group info</h2>
+          <h2 className="text-lg font-semibold text-ink">Group info</h2>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="p-1 rounded-full hover:bg-gray-100 text-gray-500"
+            className="p-1 rounded-full hover:bg-surface-3 text-ink-3"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -189,7 +189,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="px-3 py-1.5 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
+                className="px-3 py-1.5 text-sm rounded-lg bg-brand-soft text-brand-text hover:bg-brand-soft"
               >
                 Change icon
               </button>
@@ -197,7 +197,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
                 <button
                   type="button"
                   onClick={() => setAvatar("")}
-                  className="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  className="px-3 py-1.5 text-sm rounded-lg bg-surface-3 text-ink-2 hover:bg-surface-4"
                 >
                   Remove
                 </button>
@@ -218,7 +218,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
               onChange={(e) => setName(e.target.value)}
               placeholder="Group name"
               aria-label="Group name"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <textarea
               rows={2}
@@ -227,14 +227,14 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Group description (optional)"
               aria-label="Group description"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand resize-none"
             />
 
             <div className="flex justify-end gap-2 w-full">
               <button
                 type="button"
                 onClick={() => { setEditing(false); setError(""); }}
-                className="px-4 py-2 text-sm rounded-lg text-gray-600 hover:bg-gray-100"
+                className="px-4 py-2 text-sm rounded-lg text-ink-2 hover:bg-surface-3"
               >
                 Cancel
               </button>
@@ -242,7 +242,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
                 type="button"
                 onClick={saveEdits}
                 disabled={busy}
-                className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300"
+                className="px-4 py-2 text-sm rounded-lg bg-brand text-white hover:bg-brand-hover disabled:bg-brand/50"
               >
                 {busy ? "Saving..." : "Save"}
               </button>
@@ -251,23 +251,23 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
         ) : (
           <div className="flex flex-col items-center text-center">
             <GroupAvatar avatar={group.groupAvatar} size="xl" />
-            <p className="text-xl font-semibold text-gray-900 mt-3 break-words max-w-full">
+            <p className="text-xl font-semibold text-ink mt-3 break-words max-w-full">
               {group.groupName || "Group"}
             </p>
-            <p className="text-sm text-gray-500">Group · {participants.length} members</p>
+            <p className="text-sm text-ink-3">Group · {participants.length} members</p>
             {group.createdAt && !Number.isNaN(new Date(group.createdAt).getTime()) && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-ink-4 mt-1">
                 Created {format(new Date(group.createdAt), "d MMM yyyy")}
               </p>
             )}
             {group.groupDescription && (
-              <p className="text-sm text-gray-600 mt-3 break-words max-w-full">{group.groupDescription}</p>
+              <p className="text-sm text-ink-2 mt-3 break-words max-w-full">{group.groupDescription}</p>
             )}
             {iAmAdmin && (
               <button
                 type="button"
                 onClick={startEditing}
-                className="mt-3 px-3 py-1.5 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
+                className="mt-3 px-3 py-1.5 text-sm rounded-lg bg-brand-soft text-brand-text hover:bg-brand-soft"
               >
                 Edit group
               </button>
@@ -275,15 +275,15 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
           </div>
         )}
 
-        {error && <p className="text-sm text-red-600 mt-3 text-center">{error}</p>}
+        {error && <p className="text-sm text-danger-text mt-3 text-center">{error}</p>}
 
         <div className="flex items-center justify-between mt-5 mb-2">
-          <h3 className="text-sm font-semibold text-gray-700">Members ({participants.length})</h3>
+          <h3 className="text-sm font-semibold text-ink-2">Members ({participants.length})</h3>
           {iAmAdmin && !adding && (
             <button
               type="button"
               onClick={() => { setAdding(true); setError(""); }}
-              className="text-sm text-blue-600 hover:text-blue-700"
+              className="text-sm text-brand-text hover:text-brand-text"
             >
               + Add people
             </button>
@@ -291,18 +291,18 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
         </div>
 
         {adding && (
-          <div className="border border-gray-200 rounded-xl p-3 mb-3">
+          <div className="border border-line rounded-xl p-3 mb-3">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search people"
               aria-label="Search people to add"
-              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-line-strong rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <ul className="max-h-40 overflow-y-auto mt-2">
               {candidates.length === 0 ? (
-                <li className="text-xs text-gray-400 py-2 text-center">No one else to add.</li>
+                <li className="text-xs text-ink-4 py-2 text-center">No one else to add.</li>
               ) : (
                 candidates.map((u) => (
                   <li key={u._id}>
@@ -317,7 +317,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
                         }
                       />
                       <UserAvatar user={u} size="sm" showStatus={false} />
-                      <span className="text-sm text-gray-800 truncate">{u.name}</span>
+                      <span className="text-sm text-ink truncate">{u.name}</span>
                     </label>
                   </li>
                 ))
@@ -327,7 +327,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
               <button
                 type="button"
                 onClick={() => { setAdding(false); setPicked([]); setSearch(""); }}
-                className="px-3 py-1.5 text-sm rounded-lg text-gray-600 hover:bg-gray-100"
+                className="px-3 py-1.5 text-sm rounded-lg text-ink-2 hover:bg-surface-3"
               >
                 Cancel
               </button>
@@ -335,7 +335,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
                 type="button"
                 onClick={addPeople}
                 disabled={busy || picked.length === 0}
-                className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300"
+                className="px-3 py-1.5 text-sm rounded-lg bg-brand text-white hover:bg-brand-hover disabled:bg-brand/50"
               >
                 {busy ? "Adding..." : `Add${picked.length ? ` (${picked.length})` : ""}`}
               </button>
@@ -343,7 +343,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
           </div>
         )}
 
-        <ul className="divide-y divide-gray-100">
+        <ul className="divide-y divide-line">
           {participants.map((p) => {
             const personIsAdmin = adminIds.includes(String(p._id).toLowerCase());
             const isMe = p._id === me?._id;
@@ -351,11 +351,11 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
               <li key={p._id} className="flex items-center gap-3 py-2">
                 <UserAvatar user={p} isOnline={isOnline(p._id)} size="md" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-ink truncate">
                     {p.name}
-                    {isMe && <span className="text-gray-400"> (you)</span>}
+                    {isMe && <span className="text-ink-4"> (you)</span>}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-ink-3 truncate">
                     {p.about || (isOnline(p._id) ? "Online" : lastSeenText(p))}
                   </p>
                   {iAmAdmin && !isMe && (
@@ -364,7 +364,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
                         type="button"
                         disabled={busy}
                         onClick={() => changeAdmin(p, !personIsAdmin)}
-                        className="text-xs text-blue-600 hover:text-blue-700 disabled:text-gray-400"
+                        className="text-xs text-brand-text hover:text-brand-text disabled:text-ink-4"
                       >
                         {personIsAdmin ? "Remove admin" : "Make admin"}
                       </button>
@@ -372,7 +372,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
                         type="button"
                         disabled={busy}
                         onClick={() => removePerson(p)}
-                        className="text-xs text-red-600 hover:text-red-700 disabled:text-gray-400"
+                        className="text-xs text-danger-text hover:text-danger-text disabled:text-ink-4"
                       >
                         Remove
                       </button>
@@ -380,7 +380,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
                   )}
                 </div>
                 {personIsAdmin && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5 flex-shrink-0">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-success-text bg-success-soft border border-success-line rounded px-1.5 py-0.5 flex-shrink-0">
                     Admin
                   </span>
                 )}
@@ -393,7 +393,7 @@ const GroupInfoPanel = ({ conversationId, onClose }) => {
           type="button"
           onClick={leave}
           disabled={busy}
-          className="w-full mt-5 px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:text-gray-400"
+          className="w-full mt-5 px-4 py-2 text-sm rounded-lg border border-danger-line text-danger-text hover:bg-danger-soft disabled:text-ink-4"
         >
           Leave group
         </button>
