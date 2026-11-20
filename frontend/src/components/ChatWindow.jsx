@@ -59,6 +59,8 @@ const ChatWindow = ({ onMenuClick }) => {
   const [confirmAction, setConfirmAction] = useState(null); // "clear" | "delete" | null
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null); // { message, scope }
 
   // Ref to the messages container for auto-scroll
   const messagesEndRef = useRef(null);
@@ -331,6 +333,7 @@ const ChatWindow = ({ onMenuClick }) => {
         {
           conversationId,
           text,
+          ...(replyingTo ? { replyTo: replyingTo._id } : {}),
         },
         (error, response) => {
           setIsSending(false);
@@ -351,6 +354,7 @@ const ChatWindow = ({ onMenuClick }) => {
 
           // Clear the box, unless the user already started typing something else.
           setInputText((current) => (current === text ? "" : current));
+          setReplyingTo(null);
 
           // Show it right away if its conversation is still open (the same
           // message also arrives via receive_message; the store drops the copy).
@@ -389,6 +393,34 @@ const ChatWindow = ({ onMenuClick }) => {
     ? Object.entries(typingUsers[activeConversation._id] || {})
         .filter(([uid]) => uid !== user._id)
     : [];
+
+  // Another chat means another reply target.
+  useEffect(() => {
+    setReplyingTo(null);
+    setPendingDelete(null);
+  }, [activeConversation?._id]);
+
+  const runDeleteMessage = async () => {
+    if (!pendingDelete || !activeConversation) return;
+    const { message, scope } = pendingDelete;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await api.delete(
+        `/conversations/${activeConversation._id}/messages/${message._id}`,
+        { params: { scope } }
+      );
+      const store = useChatStore.getState();
+      if (scope === "me") store.removeMessage(message._id);
+      else store.markMessageDeleted(activeConversation._id, message._id, new Date().toISOString());
+      if (replyingTo?._id === message._id) setReplyingTo(null);
+      setPendingDelete(null);
+    } catch (err) {
+      setActionError(err.response?.data?.message || "That did not work. Please try again.");
+    } finally {
+      setActionBusy(false);
+    }
+  };
 
   // The other person deleted their account: this chat is read-only.
   const isReadOnly = Boolean(activeConversation?.readOnly);
@@ -568,6 +600,11 @@ const ChatWindow = ({ onMenuClick }) => {
                 message={msg}
                 isGroup={activeConversation.isGroup}
                 previousMessage={idx > 0 ? messages[idx - 1] : null}
+                onReply={isReadOnly ? undefined : (m) => setReplyingTo(m)}
+                onDelete={(m, scope) => {
+                  setActionError("");
+                  setPendingDelete({ message: m, scope });
+                }}
               />
             ))}
           </>
@@ -602,6 +639,27 @@ const ChatWindow = ({ onMenuClick }) => {
         </div>
       ) : (
       <div className="bg-white border-t border-gray-200 px-4 py-3">
+        {replyingTo && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-gray-50 border-l-4 border-blue-400 rounded-lg text-xs">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-gray-700 truncate">
+                Replying to{" "}
+                {replyingTo.sender?._id === user?._id ? "yourself" : replyingTo.sender?.name}
+              </p>
+              <p className="text-gray-500 truncate">{replyingTo.text}</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Cancel reply"
+              onClick={() => setReplyingTo(null)}
+              className="p-1 rounded-full hover:bg-gray-200 text-gray-500"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
         {sendError && (
           <p role="alert" className="text-xs text-red-600 mb-2 ml-4">
             {sendError}
@@ -657,6 +715,25 @@ const ChatWindow = ({ onMenuClick }) => {
           error={actionError}
           onConfirm={runChatAction}
           onCancel={() => setConfirmAction(null)}
+        />
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={
+            pendingDelete.scope === "everyone" ? "Delete for everyone?" : "Delete for me?"
+          }
+          message={
+            pendingDelete.scope === "everyone"
+              ? "The message will be erased for everyone in this chat. A note saying it was deleted stays in its place."
+              : "The message will be removed from your screen only. Other people still see it."
+          }
+          confirmLabel="Delete"
+          danger
+          busy={actionBusy}
+          error={actionError}
+          onConfirm={runDeleteMessage}
+          onCancel={() => setPendingDelete(null)}
         />
       )}
 

@@ -1,6 +1,6 @@
 const express = require("express");
 const { getConversations, createOrGetConversation } = require("../controllers/conversationController");
-const { getMessages } = require("../controllers/messageController");
+const { getMessages, deleteMessage } = require("../controllers/messageController");
 const {
   updateGroup,
   addGroupMembers,
@@ -42,5 +42,8 @@ router.delete("/:id", deleteChat);
 
 // GET  /api/conversations/:id/messages — fetch message history
 router.get("/:id/messages", getMessages);
+
+// DELETE /api/conversations/:id/messages/:messageId?scope=me|everyone
+router.delete("/:id/messages/:messageId", deleteMessage);
 
 module.exports = router;

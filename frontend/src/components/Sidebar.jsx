@@ -121,6 +121,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
   const getLastMessagePreview = (conv) => {
     if (!conv.lastMessage) return "No messages yet";
     const msg = conv.lastMessage;
+    if (msg.deletedAt) return "This message was deleted";
     const senderName = msg.sender?._id === user?._id ? "You" : msg.sender?.name?.split(" ")[0];
     return `${senderName}: ${msg.text?.substring(0, 35)}${msg.text?.length > 35 ? "..." : ""}`;
   };

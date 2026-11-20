@@ -3,6 +3,14 @@ const Conversation = require("../models/Conversation");
 const { isValidObjectId } = require("../utils/validators");
 const { parseLimit, olderThanFilter } = require("../utils/pagination");
 const { clearedAtFor } = require("../utils/chatState");
+const { checkDeleteForEveryone } = require("../utils/messageRules");
+
+// The little quoted message shown above a reply.
+const REPLY_POPULATE = {
+  path: "replyTo",
+  select: "text sender deletedAt",
+  populate: { path: "sender", select: "name" },
+};
 
 /**
  * GET /api/conversations/:id/messages
@@ -66,8 +74,14 @@ const getMessages = async (req, res) => {
 
     // Newest first so that "limit" keeps the LATEST messages, then flip the
     // page to oldest-first for display.
-    const newestFirst = await Message.find({ conversation: conversationId, ...notCleared, ...olderThan })
+    const newestFirst = await Message.find({
+      conversation: conversationId,
+      deletedFor: { $ne: req.user._id }, // "delete for me"
+      ...notCleared,
+      ...olderThan,
+    })
       .populate("sender", "name")
+      .populate(REPLY_POPULATE)
       .sort({ createdAt: -1, _id: -1 })
       .limit(limit);
 
@@ -93,4 +107,71 @@ const getMessages = async (req, res) => {
   }
 };
 
-module.exports = { getMessages };
+const roomOf = (userId) => `user:${userId}`;
+
+/**
+ * DELETE /api/conversations/:id/messages/:messageId?scope=me|everyone
+ *   me        remove it from MY view only (any member)
+ *   everyone  erase it for all members (only the sender, within 48 hours);
+ *             a "This message was deleted" note stays in its place
+ */
+const deleteMessage = async (req, res) => {
+  try {
+    const { id: conversationId, messageId } = req.params;
+    const scope = req.query.scope;
+
+    if (scope !== "me" && scope !== "everyone") {
+      return res.status(400).json({ message: "scope must be 'me' or 'everyone'" });
+    }
+    if (!isValidObjectId(conversationId) || !isValidObjectId(messageId)) {
+      return res.status(400).json({ message: "Invalid id" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: req.user._id,
+    }).select("participants");
+    if (!conversation) return res.status(404).json({ message: "Conversation not found" });
+
+    // The message must belong to THIS conversation, so ids cannot be used to
+    // reach other chats.
+    const message = await Message.findOne({ _id: messageId, conversation: conversationId }).select(
+      "sender createdAt deletedAt"
+    );
+    if (!message) return res.status(404).json({ message: "Message not found" });
+
+    const io = req.app.get("io");
+
+    if (scope === "me") {
+      await Message.updateOne({ _id: message._id }, { $addToSet: { deletedFor: req.user._id } });
+      try {
+        io?.to(roomOf(req.user._id)).emit("message_removed", { conversationId, messageId });
+      } catch {
+        /* live update is best effort */
+      }
+      return res.status(200).json({ conversationId, messageId, scope });
+    }
+
+    const verdict = checkDeleteForEveryone(message, req.user._id);
+    if (!verdict.ok) return res.status(verdict.status).json({ message: verdict.message });
+
+    const deletedAt = message.deletedAt || new Date();
+    if (!message.deletedAt) {
+      await Message.updateOne({ _id: message._id }, { $set: { text: "", deletedAt } });
+    }
+
+    try {
+      let target = io;
+      for (const id of conversation.participants) target = target.to(roomOf(id));
+      target.emit("message_deleted", { conversationId, messageId, deletedAt });
+    } catch {
+      /* live update is best effort */
+    }
+    res.status(200).json({ conversationId, messageId, scope, deletedAt });
+  } catch (error) {
+    console.error("Delete message error:", error);
+    res.status(500).json({ message: "Server error deleting the message" });
+  }
+};
+
+module.exports = { getMessages, deleteMessage, REPLY_POPULATE };

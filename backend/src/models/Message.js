@@ -24,6 +24,21 @@ const messageSchema = new mongoose.Schema(
       trim: true,
       maxlength: [2000, "Message cannot exceed 2000 characters"],
     },
+    // The message this one answers (a "reply"), or null.
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
+    // "Delete for everyone": the text is erased and this time is set.
+    deletedAt: { type: Date, default: null },
+    // "Delete for me": people who removed this message from their own view.
+    deletedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     // Which users' devices have RECEIVED this message (shown as grey ticks).
     deliveredTo: [
       {

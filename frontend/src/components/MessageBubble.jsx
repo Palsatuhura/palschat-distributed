@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import useAuthStore from "../store/authStore";
 import useChatStore from "../store/chatStore";
@@ -25,7 +26,17 @@ const formatMessageTime = (date) => {
   return format(d, "MMM d, h:mm a");
 };
 
-const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => {
+// Must match DELETE_FOR_EVERYONE_MS on the server (48 hours).
+const DELETE_FOR_EVERYONE_MS = 48 * 60 * 60 * 1000;
+
+const MessageBubble = ({
+  message,
+  isGroup = false,
+  previousMessage = null,
+  onReply,
+  onDelete,
+}) => {
+  const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuthStore();
   const isOwnMessage = message.sender?._id === user?._id;
 
@@ -45,6 +56,14 @@ const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => 
 
   // Delivered = the other person's app received it (read implies delivered).
   const isDelivered = isRead || (message.deliveredTo?.length ?? 0) > 0;
+  const isDeleted = Boolean(message.deletedAt);
+  const canDeleteForEveryone =
+    isOwnMessage &&
+    !isDeleted &&
+    Date.now() - new Date(message.createdAt).getTime() <= DELETE_FOR_EVERYONE_MS;
+  const quoted = message.replyTo;
+  const quotedName =
+    quoted && (quoted.sender?._id === user?._id ? "You" : quoted.sender?.name);
   const receiptLabel = isRead ? "Read" : isDelivered ? "Delivered" : "Sent";
 
   return (
@@ -73,8 +92,99 @@ const MessageBubble = ({ message, isGroup = false, previousMessage = null }) => 
             : "bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm"
           }`}
         >
+          {/* Message actions */}
+          {(onReply || onDelete) && (
+            <div className="absolute top-1 right-1">
+              <button
+                type="button"
+                aria-label="Message options"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((v) => !v)}
+                className={`w-5 h-5 rounded-full flex items-center justify-center opacity-50 hover:opacity-100 ${
+                  isOwnMessage ? "text-blue-100 hover:bg-blue-500" : "text-gray-500 hover:bg-gray-100"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div
+                    role="menu"
+                    className={`absolute top-6 ${isOwnMessage ? "right-0" : "left-0"} w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 text-gray-700`}
+                  >
+                    {onReply && !isDeleted && (
+                      <button
+                        role="menuitem"
+                        type="button"
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onReply(message);
+                        }}
+                      >
+                        Reply
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        role="menuitem"
+                        type="button"
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onDelete(message, "me");
+                        }}
+                      >
+                        Delete for me
+                      </button>
+                    )}
+                    {onDelete && canDeleteForEveryone && (
+                      <button
+                        role="menuitem"
+                        type="button"
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onDelete(message, "everyone");
+                        }}
+                      >
+                        Delete for everyone
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* The message this one replies to */}
+          {quoted && (
+            <div
+              className={`mb-1 mr-4 rounded-lg border-l-4 px-2 py-1 text-xs ${
+                isOwnMessage
+                  ? "bg-blue-700/60 border-blue-200 text-blue-100"
+                  : "bg-gray-100 border-blue-400 text-gray-600"
+              }`}
+            >
+              <p className="font-semibold truncate">{quotedName || "Deleted user"}</p>
+              <p className="truncate">
+                {quoted.deletedAt ? "This message was deleted" : quoted.text}
+              </p>
+            </div>
+          )}
+
           {/* Message text */}
-          <p className="whitespace-pre-wrap break-words">{message.text}</p>
+          {isDeleted ? (
+            <p className={`italic ${isOwnMessage ? "text-blue-100" : "text-gray-400"}`}>
+              This message was deleted
+            </p>
+          ) : (
+            <p className="whitespace-pre-wrap break-words pr-4">{message.text}</p>
+          )}
 
           {/* Timestamp + read receipt */}
           <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? "justify-end" : "justify-start"}`}>

@@ -197,6 +197,16 @@ const useSocket = () => {
       if (conversationId) useChatStore.getState().removeConversation(conversationId);
     };
 
+    const handleMessageDeleted = ({ conversationId, messageId, deletedAt } = {}) => {
+      if (messageId) {
+        useChatStore.getState().markMessageDeleted(conversationId, messageId, deletedAt || new Date().toISOString());
+      }
+    };
+
+    const handleMessageRemoved = ({ messageId } = {}) => {
+      if (messageId) useChatStore.getState().removeMessage(messageId);
+    };
+
     const handleUserRemoved = ({ _id } = {}) => {
       if (_id) useChatStore.getState().removeUser(_id);
     };
@@ -401,6 +411,8 @@ const useSocket = () => {
     socket.on("chat_cleared", handleChatCleared);
     socket.on("chat_deleted", handleChatDeleted);
     socket.on("user_removed", handleUserRemoved);
+    socket.on("message_deleted", handleMessageDeleted);
+    socket.on("message_removed", handleMessageRemoved);
 
     socket.on(
       "user_online",
@@ -483,6 +495,8 @@ const useSocket = () => {
       socket.off("chat_cleared", handleChatCleared);
       socket.off("chat_deleted", handleChatDeleted);
       socket.off("user_removed", handleUserRemoved);
+      socket.off("message_deleted", handleMessageDeleted);
+      socket.off("message_removed", handleMessageRemoved);
 
       socket.off(
         "user_online",

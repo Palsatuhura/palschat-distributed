@@ -128,6 +128,32 @@ const useChatStore = create((set, get) => ({
       };
     }),
 
+  /**
+   * "Delete for everyone": the text is gone for all; a note stays in place.
+   * Also updates quotes of it inside replies, and the list preview.
+   */
+  markMessageDeleted: (conversationId, messageId, deletedAt) =>
+    set((state) => {
+      const wipe = (m) => {
+        if (!m) return m;
+        if (m._id === messageId) return { ...m, text: "", deletedAt };
+        if (m.replyTo && m.replyTo._id === messageId) {
+          return { ...m, replyTo: { ...m.replyTo, text: "", deletedAt } };
+        }
+        return m;
+      };
+      return {
+        messages: state.messages.map(wipe),
+        conversations: state.conversations.map((c) =>
+          c._id === conversationId && c.lastMessage ? { ...c, lastMessage: wipe(c.lastMessage) } : c
+        ),
+      };
+    }),
+
+  /** "Delete for me": drop one message from my screen. */
+  removeMessage: (messageId) =>
+    set((state) => ({ messages: state.messages.filter((m) => m._id !== messageId) })),
+
   /** A person deleted their account: take them off the People list. */
   removeUser: (userId) =>
     set((state) => ({ users: state.users.filter((u) => u._id !== userId) })),

@@ -617,12 +617,43 @@ const socketHandler = (io, presenceClient) => {
             return;
           }
 
+          // Optional reply: the quoted message must exist in THIS chat.
+          let replyTo = null;
+          if (
+            data.replyTo !== undefined &&
+            data.replyTo !== null
+          ) {
+            if (!isValidObjectId(data.replyTo)) {
+              fail("Invalid reply");
+
+              return;
+            }
+
+            const quoted = await Message.findOne({
+              _id: data.replyTo,
+              conversation: conversationId,
+            })
+              .select("_id deletedAt")
+              .lean();
+
+            if (!quoted || quoted.deletedAt) {
+              fail(
+                "The message you are replying to is no longer available"
+              );
+
+              return;
+            }
+
+            replyTo = quoted._id;
+          }
+
           const message =
             await Message.create({
               conversation:
                 conversationId,
               sender: senderId,
               text: text.trim(),
+              replyTo,
               readBy: [senderId],
             });
 
@@ -630,6 +661,17 @@ const socketHandler = (io, presenceClient) => {
             "sender",
             "name"
           );
+
+          if (replyTo) {
+            await message.populate({
+              path: "replyTo",
+              select: "text sender deletedAt",
+              populate: {
+                path: "sender",
+                select: "name",
+              },
+            });
+          }
 
           await Conversation.findByIdAndUpdate(
             conversationId,

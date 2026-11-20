@@ -34,11 +34,15 @@ const MAX_GROUP_DESCRIPTION_LENGTH = 200;
 const MAX_NAME_LENGTH = 50;
 
 // Per-socket event budgets (see utils/eventLimiter.js).
+// "Delete for everyone" is allowed for 48 hours after sending.
+const DELETE_FOR_EVERYONE_MS = 48 * 60 * 60 * 1000;
+
 const SOCKET_EVENT_WINDOW_MS = 10 * 1000;
 const SOCKET_EVENTS_PER_WINDOW = 100; // all events together
 const SOCKET_MESSAGES_PER_WINDOW = 20; // send_message only
 
 module.exports = {
+  DELETE_FOR_EVERYONE_MS,
   SOCKET_EVENT_WINDOW_MS,
   SOCKET_EVENTS_PER_WINDOW,
   SOCKET_MESSAGES_PER_WINDOW,
