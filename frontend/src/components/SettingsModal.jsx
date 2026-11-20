@@ -1,7 +1,40 @@
 import { useEffect, useState } from "react";
 import { ACCENTS, THEMES, getAccent, getTheme, setAccent, setTheme } from "../lib/theme";
 import UserAvatar from "./UserAvatar";
+import {
+  desktopPermission,
+  desktopSupported,
+  isDesktopOn,
+  isSoundOn,
+  playPing,
+  setDesktopOn,
+  setSoundOn,
+} from "../lib/notify";
 import useAuthStore from "../store/authStore";
+
+const Switch = ({ checked, onChange, label, hint, disabled }) => (
+  <div className="flex items-center justify-between gap-4 px-4 py-3">
+    <div className="min-w-0">
+      <p className="text-sm font-medium text-ink">{label}</p>
+      {hint && <p className="text-xs text-ink-3 mt-0.5">{hint}</p>}
+    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative w-11 h-6 rounded-full flex-shrink-0 disabled:opacity-40 ${checked ? "bg-brand" : "bg-surface-4"}`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+          checked ? "translate-x-5" : ""
+        }`}
+      />
+    </button>
+  </div>
+);
 
 const THEME_LABELS = { light: "Light", dark: "Dark", system: "System" };
 
@@ -48,6 +81,28 @@ const SettingsModal = ({ onClose, onOpenProfile, onOpenSecurity, onLogout }) => 
   const user = useAuthStore((s) => s.user);
   const [theme, setThemeState] = useState(getTheme());
   const [accent, setAccentState] = useState(getAccent());
+  const [sound, setSoundState] = useState(isSoundOn());
+  const [desktop, setDesktopState] = useState(isDesktopOn());
+  const [desktopNote, setDesktopNote] = useState("");
+
+  const toggleSound = (on) => {
+    setSoundOn(on);
+    setSoundState(on);
+    if (on) playPing(); // lets the person hear it
+  };
+
+  const toggleDesktop = async (on) => {
+    setDesktopNote("");
+    const result = await setDesktopOn(on);
+    setDesktopState(result);
+    if (on && !result) {
+      setDesktopNote(
+        desktopSupported() && desktopPermission() === "denied"
+          ? "Notifications are blocked for this site. Allow them in your browser's site settings, then try again."
+          : "This browser does not support desktop notifications."
+      );
+    }
+  };
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -144,6 +199,28 @@ const SettingsModal = ({ onClose, onOpenProfile, onOpenSecurity, onLogout }) => 
                 </button>
               ))}
             </div>
+          </section>
+
+          {/* Notifications */}
+          <section aria-labelledby="notify-title">
+            <h3 id="notify-title" className="text-xs font-semibold uppercase tracking-wide text-ink-3 mb-2">
+              Notifications
+            </h3>
+            <div className="border border-line rounded-xl overflow-hidden divide-y divide-line">
+              <Switch
+                label="Message sounds"
+                hint="A short sound for new messages. Muted chats stay silent."
+                checked={sound}
+                onChange={toggleSound}
+              />
+              <Switch
+                label="Desktop notifications"
+                hint="Show a pop-up when PalsChat is in the background."
+                checked={desktop}
+                onChange={toggleDesktop}
+              />
+            </div>
+            {desktopNote && <p className="text-xs text-danger-text mt-2">{desktopNote}</p>}
           </section>
 
           {/* Account */}

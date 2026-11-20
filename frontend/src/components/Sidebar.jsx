@@ -10,6 +10,7 @@ import CreateGroupModal from "./CreateGroupModal";
 import ProfileModal from "./ProfileModal";
 import SecurityModal from "./SecurityModal";
 import SettingsModal from "./SettingsModal";
+import { SkeletonRows } from "./Skeleton";
 import GroupAvatar from "./GroupAvatar";
 import socket from "../lib/socket";
 
@@ -300,9 +301,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
           {activeTab === "chats" && (
             <>
               {isLoadingConvs ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-                </div>
+                <SkeletonRows />
               ) : filteredConversations.length === 0 && !showArchived && archivedCount === 0 ? (
                 <div className="text-center py-10 px-4">
                   <p className="text-ink-4 text-sm">No conversations yet.</p>
@@ -395,9 +394,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
           {activeTab === "people" && (
             <>
               {isLoadingUsers ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-                </div>
+                <SkeletonRows />
               ) : filteredUsers.length === 0 ? (
                 <p className="text-center text-ink-4 text-sm py-8">No users found</p>
               ) : (

@@ -1,3 +1,4 @@
+import { announceMessage } from "../lib/notify";
 import { useEffect } from "react";
 import socket from "../lib/socket";
 import useAuthStore from "../store/authStore";
@@ -278,6 +279,14 @@ const useSocket = () => {
         // This device has the message: the sender's ticks can go double.
         socket.emit("mark_delivered", {
           conversationId: message.conversation,
+        });
+
+        // Sound / desktop alert (never for muted chats or the chat being read).
+        announceMessage({
+          message,
+          conversation: conversations.find((c) => c._id === message.conversation),
+          activeConversationId: activeConversation?._id,
+          groupName: conversations.find((c) => c._id === message.conversation)?.groupName,
         });
 
         // ...and if the person is looking at that chat right now, it is read.

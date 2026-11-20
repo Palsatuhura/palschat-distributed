@@ -9,6 +9,8 @@ import InfoPanel from "./InfoPanel";
 import GroupAvatar from "./GroupAvatar";
 import ConfirmDialog from "./ConfirmDialog";
 import { dayLabel, isSameDay } from "../lib/dayLabel";
+import { isNearBottom, shouldFollowNewMessage } from "../lib/scrollRules";
+import { SkeletonMessages } from "./Skeleton";
 import { ACCEPT, formatSize, previewText } from "../lib/attachmentInfo";
 import { prepareFile, uploadAttachment } from "../lib/attachments";
 
@@ -240,10 +242,60 @@ const ChatWindow = ({ onMenuClick }) => {
   // Keyed on the newest message, so inserting older messages above does not
   // pull the view down.
   const newestMessageId = messages.length ? messages[messages.length - 1]._id : null;
+  const newestIsMine =
+    messages.length > 0 &&
+    (messages[messages.length - 1].sender?._id ?? messages[messages.length - 1].sender) === user?._id;
+
+  // Is the reader at the bottom? Kept in a ref (for the effect below) and in
+  // state (to show or hide the "jump to latest" button).
+  const nearBottomRef = useRef(true);
+  const openedChatRef = useRef(null);
+  const [showJump, setShowJump] = useState(false);
+  const [newBelow, setNewBelow] = useState(0);
+
+  const handleScroll = () => {
+    const box = scrollBoxRef.current;
+    if (!box) return;
+    const near = isNearBottom(box.scrollHeight, box.scrollTop, box.clientHeight);
+    nearBottomRef.current = near;
+    setShowJump(!near);
+    if (near) setNewBelow(0);
+  };
+
+  const jumpToLatest = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setNewBelow(0);
+  };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const chatId = activeConversation?._id ?? null;
+    const firstLoad = openedChatRef.current !== chatId;
+    if (newestMessageId === null) return;
+    openedChatRef.current = chatId;
+
+    if (
+      shouldFollowNewMessage({
+        firstLoad,
+        isMine: newestIsMine,
+        wasNearBottom: nearBottomRef.current,
+      })
+    ) {
+      messagesEndRef.current?.scrollIntoView({ behavior: firstLoad ? "auto" : "smooth" });
+    } else {
+      // Reading older messages: do not pull the view away.
+      setNewBelow((n) => n + 1);
+      setShowJump(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newestMessageId]);
+
+  // A different chat starts at the bottom.
+  useEffect(() => {
+    nearBottomRef.current = true;
+    openedChatRef.current = null;
+    setShowJump(false);
+    setNewBelow(0);
+  }, [activeConversation?._id]);
 
   // ─── Textarea auto-resize ──────────────────────────────────────────────
   useEffect(() => {
@@ -697,11 +749,14 @@ const ChatWindow = ({ onMenuClick }) => {
       </div>
 
       {/* ── Messages area ── */}
-      <div ref={scrollBoxRef} className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin">
+      <div className="relative flex-1 min-h-0 flex flex-col">
+      <div
+        ref={scrollBoxRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin"
+      >
         {isLoadingMessages ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-          </div>
+          <SkeletonMessages />
         ) : messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-ink-4 text-sm">
@@ -765,6 +820,21 @@ const ChatWindow = ({ onMenuClick }) => {
 
         {/* Scroll anchor */}
         <div ref={messagesEndRef} />
+      </div>
+
+      {showJump && (
+        <button
+          type="button"
+          onClick={jumpToLatest}
+          aria-label={newBelow > 0 ? `Jump to latest, ${newBelow} new` : "Jump to latest"}
+          className="absolute bottom-4 right-6 flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-surface border border-line shadow-pop text-sm font-medium text-ink-2 hover:bg-surface-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+          {newBelow > 0 ? `${newBelow} new` : "Latest"}
+        </button>
+      )}
       </div>
 
       {/* ── Input bar ── */}
