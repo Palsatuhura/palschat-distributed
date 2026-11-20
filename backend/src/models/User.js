@@ -43,7 +43,9 @@ const userSchema = new mongoose.Schema(
     },
     // Set when the person deletes their account. The record stays (anonymised
     // as "Deleted user") so other people's chat history keeps its shape.
-    deletedAt: {
+    // People this user blocked (private: never sent to anyone else).
+  blocked: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  deletedAt: {
       type: Date,
       default: null,
     },

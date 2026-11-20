@@ -68,6 +68,11 @@ const conversationSchema = new mongoose.Schema(
     ],
     // A one-to-one chat whose other person deleted their account: nobody
     // can send into it any more.
+    // Per-person settings: who pinned, muted or archived this chat. Each
+    // person only ever gets their own answer (see utils/chatState.js).
+    pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    mutedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    archivedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     readOnly: {
       type: Boolean,
       default: false,

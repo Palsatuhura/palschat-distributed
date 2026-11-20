@@ -44,6 +44,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
   const typingUsers = useChatStore((s) => s.typingUsers);
   const setUsers = useChatStore((s) => s.setUsers);
   const setConversations = useChatStore((s) => s.setConversations);
+  const setBlockedIds = useChatStore((s) => s.setBlockedIds);
   const addOrUpdateConversation = useChatStore((s) => s.addOrUpdateConversation);
   const setActiveConversation = useChatStore((s) => s.setActiveConversation);
   const clearUnreadCount = useChatStore((s) => s.clearUnreadCount);
@@ -55,6 +56,7 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
   const [showSecurity, setShowSecurity] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingConvs, setIsLoadingConvs] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Load all users and conversations on mount
   useEffect(() => {
@@ -68,6 +70,11 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
         ]);
         setUsers(usersRes.data);
         setConversations(convsRes.data);
+        // The blocked list is separate so a problem there never hides chats.
+        api
+          .get("/users/blocked")
+          .then(({ data }) => setBlockedIds(data.blocked))
+          .catch(() => {});
       } catch (err) {
         console.error("Sidebar fetch error:", err);
       } finally {
@@ -126,10 +133,16 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
     return `${senderName}: ${msg.text?.substring(0, 35)}${msg.text?.length > 35 ? "..." : ""}`;
   };
 
-  // Filter conversations by search term
-  const filteredConversations = conversations.filter((conv) =>
+  // Filter conversations by search term; archived chats live in their own
+  // list, and pinned chats stay on top (the rest keep the newest-first order).
+  const matching = conversations.filter((conv) =>
     getConvName(conv).toLowerCase().includes(searchTerm.toLowerCase())
   );
+  const archivedCount = conversations.filter((c) => c.archived).length;
+  const shown = matching.filter((c) => Boolean(c.archived) === showArchived);
+  const filteredConversations = showArchived
+    ? shown
+    : [...shown.filter((c) => c.pinned), ...shown.filter((c) => !c.pinned)];
 
   // Filter users by search term
   const filteredUsers = users.filter((u) =>
@@ -269,13 +282,38 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                 <div className="flex items-center justify-center py-8">
                   <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                 </div>
-              ) : filteredConversations.length === 0 ? (
+              ) : filteredConversations.length === 0 && !showArchived && archivedCount === 0 ? (
                 <div className="text-center py-10 px-4">
                   <p className="text-gray-400 text-sm">No conversations yet.</p>
                   <p className="text-gray-400 text-xs mt-1">Go to People to start chatting!</p>
                 </div>
               ) : (
-                filteredConversations.map((conv) => {
+                <>
+                {showArchived ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowArchived(false)}
+                    className="w-full text-left px-4 py-2 text-xs font-medium text-blue-600 hover:bg-gray-50 border-b border-gray-100"
+                  >
+                    ← Back to chats
+                  </button>
+                ) : (
+                  archivedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowArchived(true)}
+                      className="w-full text-left px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 border-b border-gray-100"
+                    >
+                      Archived ({archivedCount})
+                    </button>
+                  )
+                )}
+                {filteredConversations.length === 0 && (
+                  <p className="text-center text-gray-400 text-sm py-8">
+                    {showArchived ? "No archived chats." : "No chats here. Open Archived above."}
+                  </p>
+                )}
+                {filteredConversations.map((conv) => {
                   const other = getOtherParticipant(conv);
                   const isActive = activeConversation?._id === conv._id;
                   const unread = unreadCounts[conv._id] || 0;
@@ -301,7 +339,9 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                           <p className={`text-sm font-semibold truncate ${isActive ? "text-blue-700" : "text-gray-900"}`}>
                             {getConvName(conv)}
                           </p>
-                          <span className="text-xs text-gray-400 flex-shrink-0 ml-1">
+                          <span className="text-xs text-gray-400 flex-shrink-0 ml-1 flex items-center gap-1">
+                            {conv.muted && <span title="Muted" aria-label="Muted">🔇</span>}
+                            {conv.pinned && <span title="Pinned" aria-label="Pinned">📌</span>}
                             {formatPreviewTime(conv.updatedAt)}
                           </span>
                         </div>
@@ -312,7 +352,11 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                             <p className="text-xs text-gray-500 truncate">{getLastMessagePreview(conv)}</p>
                           )}
                           {unread > 0 && (
-                            <span className="ml-1 flex-shrink-0 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                            <span
+                              className={`ml-1 flex-shrink-0 w-5 h-5 text-white text-xs rounded-full flex items-center justify-center font-medium ${
+                                conv.muted ? "bg-gray-400" : "bg-blue-600"
+                              }`}
+                            >
                               {unread > 9 ? "9+" : unread}
                             </span>
                           )}
@@ -320,7 +364,8 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
                       </div>
                     </button>
                   );
-                })
+                })}
+                </>
               )}
             </>
           )}

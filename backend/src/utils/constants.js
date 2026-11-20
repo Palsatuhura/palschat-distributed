@@ -37,11 +37,15 @@ const MAX_NAME_LENGTH = 50;
 // "Delete for everyone" is allowed for 48 hours after sending.
 const DELETE_FOR_EVERYONE_MS = 48 * 60 * 60 * 1000;
 
+// A person may pin up to this many chats to the top of their list.
+const MAX_PINNED_CHATS = 3;
+
 const SOCKET_EVENT_WINDOW_MS = 10 * 1000;
 const SOCKET_EVENTS_PER_WINDOW = 100; // all events together
 const SOCKET_MESSAGES_PER_WINDOW = 20; // send_message only
 
 module.exports = {
+  MAX_PINNED_CHATS,
   DELETE_FOR_EVERYONE_MS,
   SOCKET_EVENT_WINDOW_MS,
   SOCKET_EVENTS_PER_WINDOW,

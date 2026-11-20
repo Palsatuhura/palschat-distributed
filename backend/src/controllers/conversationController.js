@@ -10,7 +10,7 @@ const {
   validateGroupDescription,
 } = require("../utils/validators");
 const { PUBLIC_USER_FIELDS } = require("../utils/constants");
-const { isHiddenFor, viewFor } = require("../utils/chatState");
+const { isHiddenFor, stripPrivate, viewFor } = require("../utils/chatState");
 
 /**
  * GET /api/conversations
@@ -119,7 +119,7 @@ const createOrGetConversation = async (req, res) => {
         if (io && otherMemberIds.length > 0) {
           let target = io;
           for (const id of otherMemberIds) target = target.to(`user:${id}`);
-          target.emit("conversation_updated", populated);
+          target.emit("conversation_updated", stripPrivate(populated));
         }
       } catch {
         /* ignore */

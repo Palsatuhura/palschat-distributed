@@ -98,13 +98,14 @@ const socketHandler = (io, presenceClient) => {
       _id: conversationId,
       participants: userId,
     })
-      .select("participants readOnly")
+      .select("participants readOnly isGroup")
       .lean();
 
     return conversation
       ? {
           ids: conversation.participants.map(String),
           readOnly: Boolean(conversation.readOnly),
+          isGroup: conversation.isGroup,
         }
       : null;
   };
@@ -605,6 +606,37 @@ const socketHandler = (io, presenceClient) => {
             return;
           }
 
+          // Blocking works in one-to-one chats, in both directions.
+          if (info && info.isGroup === false) {
+            const other = info.ids.find(
+              (id) => id !== String(senderId)
+            );
+            const blocks = other
+              ? await User.find({
+                  $or: [
+                    { _id: senderId, blocked: other },
+                    { _id: other, blocked: senderId },
+                  ],
+                })
+                  .select("_id")
+                  .lean()
+              : [];
+
+            if (blocks.length > 0) {
+              const iBlockedThem = blocks.some(
+                (b) => String(b._id) === String(senderId)
+              );
+
+              fail(
+                iBlockedThem
+                  ? "You blocked this contact. Unblock them to send messages."
+                  : "You can't send messages to this person."
+              );
+
+              return;
+            }
+          }
+
           if (!participantIds) {
             console.warn(
               `🚫 User ${senderId} tried to post to conversation ${conversationId} without being a participant`
@@ -682,6 +714,8 @@ const socketHandler = (io, presenceClient) => {
                 new Date(),
               // A new message brings back a chat someone had deleted.
               hiddenFor: [],
+              // ...and a new message brings an archived chat back.
+              archivedBy: [],
             }
           );
 

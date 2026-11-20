@@ -386,6 +386,33 @@ const ChatWindow = ({ onMenuClick }) => {
     ? activeConversation.groupName
     : otherParticipant?.name;
 
+  const blockedIds = useChatStore((s) => s.blockedIds);
+  const iBlockedThem = Boolean(otherParticipant && blockedIds.includes(otherParticipant._id));
+  const canBlock = Boolean(otherParticipant) && !otherParticipant.deletedAt;
+
+  const savePref = async (patch) => {
+    if (!activeConversation) return;
+    setSendError("");
+    try {
+      const { data } = await api.post(`/conversations/${activeConversation._id}/prefs`, patch);
+      const { conversationId, ...applied } = data;
+      useChatStore.getState().applyConversationPrefs(conversationId, applied);
+    } catch (err) {
+      setSendError(err.response?.data?.message || "Could not save that setting.");
+    }
+  };
+
+  const unblock = async () => {
+    if (!otherParticipant) return;
+    setSendError("");
+    try {
+      const { data } = await api.delete(`/users/${otherParticipant._id}/block`);
+      useChatStore.getState().setBlockedIds(data.blocked);
+    } catch (err) {
+      setSendError(err.response?.data?.message || "Could not unblock.");
+    }
+  };
+
   const isOtherOnline = otherParticipant && onlineUsers.has(otherParticipant._id);
 
   // Typing users in this conversation (excluding self)
@@ -430,7 +457,10 @@ const ChatWindow = ({ onMenuClick }) => {
     setActionBusy(true);
     setActionError("");
     try {
-      if (confirmAction === "clear") {
+      if (confirmAction === "block") {
+        const { data } = await api.post(`/users/${otherParticipant._id}/block`);
+        useChatStore.getState().setBlockedIds(data.blocked);
+      } else if (confirmAction === "clear") {
         await api.post(`/conversations/${activeConversation._id}/clear`);
         useChatStore.getState().clearConversationMessages(activeConversation._id);
       } else {
@@ -544,6 +574,57 @@ const ChatWindow = ({ onMenuClick }) => {
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
+                    savePref({ pinned: !activeConversation.pinned });
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {activeConversation.pinned ? "Unpin chat" : "Pin chat"}
+                </button>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    savePref({ muted: !activeConversation.muted });
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {activeConversation.muted ? "Unmute" : "Mute"}
+                </button>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    savePref({ archived: !activeConversation.archived });
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {activeConversation.archived ? "Unarchive" : "Archive"}
+                </button>
+                {canBlock && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      if (iBlockedThem) {
+                        unblock();
+                      } else {
+                        setActionError("");
+                        setConfirmAction("block");
+                      }
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    {iBlockedThem ? "Unblock contact" : "Block contact"}
+                  </button>
+                )}
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
                     setActionError("");
                     setConfirmAction("clear");
                   }}
@@ -637,6 +718,14 @@ const ChatWindow = ({ onMenuClick }) => {
         <div className="bg-white border-t border-gray-200 px-4 py-4 text-center text-sm text-gray-500">
           This account was deleted. You can read the old messages but cannot send new ones.
         </div>
+      ) : iBlockedThem ? (
+        <div className="bg-white border-t border-gray-200 px-4 py-4 text-center text-sm text-gray-500">
+          You blocked {otherParticipant?.name}. Neither of you can send messages here.{" "}
+          <button type="button" onClick={unblock} className="text-blue-600 hover:text-blue-700 font-medium">
+            Unblock
+          </button>
+          {sendError && <p className="text-xs text-red-600 mt-2">{sendError}</p>}
+        </div>
       ) : (
       <div className="bg-white border-t border-gray-200 px-4 py-3">
         {replyingTo && (
@@ -703,13 +792,23 @@ const ChatWindow = ({ onMenuClick }) => {
 
       {confirmAction && (
         <ConfirmDialog
-          title={confirmAction === "clear" ? "Clear this chat?" : "Delete this chat?"}
+          title={
+            confirmAction === "block"
+              ? `Block ${otherParticipant?.name}?`
+              : confirmAction === "clear"
+                ? "Clear this chat?"
+                : "Delete this chat?"
+          }
           message={
-            confirmAction === "clear"
+            confirmAction === "block"
+              ? "Neither of you will be able to send messages in this chat until you unblock them. They are not told that you blocked them."
+              : confirmAction === "clear"
               ? "All messages will be removed from your screen. Other people in the chat keep theirs."
               : "This chat will be removed from your list and its messages cleared for you. It comes back if someone sends a new message. Other people keep their copy."
           }
-          confirmLabel={confirmAction === "clear" ? "Clear chat" : "Delete chat"}
+          confirmLabel={
+            confirmAction === "block" ? "Block" : confirmAction === "clear" ? "Clear chat" : "Delete chat"
+          }
           danger
           busy={actionBusy}
           error={actionError}

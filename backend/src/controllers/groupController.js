@@ -1,3 +1,4 @@
+const { stripPrivate } = require("../utils/chatState");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const User = require("../models/User");
@@ -39,13 +40,16 @@ const findMyGroup = async (conversationId, userId) => {
 };
 
 /** Same shape as GET /api/conversations returns for one conversation. */
-const loadForClient = (conversationId) =>
-  Conversation.findById(conversationId)
+const loadForClient = async (conversationId) => {
+  const conversation = await Conversation.findById(conversationId)
     .populate("participants", PUBLIC_USER_FIELDS)
     .populate({
       path: "lastMessage",
       populate: { path: "sender", select: "name" },
     });
+  // Nobody's private settings (pin, mute, archive...) travel with it.
+  return conversation ? stripPrivate(conversation) : conversation;
+};
 
 const emitToUsers = (io, userIds, event, payload) => {
   if (!io || userIds.length === 0) return;

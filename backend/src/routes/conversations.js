@@ -8,7 +8,7 @@ const {
   makeAdmin,
   removeAdmin,
 } = require("../controllers/groupController");
-const { clearChat, deleteChat } = require("../controllers/chatController");
+const { clearChat, deleteChat, setPrefs } = require("../controllers/chatController");
 const { protect } = require("../middleware/auth");
 
 const router = express.Router();
@@ -38,6 +38,8 @@ router.delete("/:id/admins/:userId", removeAdmin);
 // POST   /api/conversations/:id/clear   — clear the chat for me only
 // DELETE /api/conversations/:id         — remove the chat from my list
 router.post("/:id/clear", clearChat);
+// POST   /api/conversations/:id/prefs   — pin / mute / archive, for me only
+router.post("/:id/prefs", setPrefs);
 router.delete("/:id", deleteChat);
 
 // GET  /api/conversations/:id/messages — fetch message history

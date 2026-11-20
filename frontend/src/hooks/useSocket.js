@@ -207,6 +207,16 @@ const useSocket = () => {
       if (messageId) useChatStore.getState().removeMessage(messageId);
     };
 
+    const handleConversationPrefs = ({ conversationId, ...prefs } = {}) => {
+      if (conversationId) {
+        useChatStore.getState().applyConversationPrefs(conversationId, prefs);
+      }
+    };
+
+    const handleBlocksUpdated = ({ blocked } = {}) => {
+      useChatStore.getState().setBlockedIds(blocked);
+    };
+
     const handleUserRemoved = ({ _id } = {}) => {
       if (_id) useChatStore.getState().removeUser(_id);
     };
@@ -411,6 +421,8 @@ const useSocket = () => {
     socket.on("chat_cleared", handleChatCleared);
     socket.on("chat_deleted", handleChatDeleted);
     socket.on("user_removed", handleUserRemoved);
+    socket.on("conversation_prefs", handleConversationPrefs);
+    socket.on("blocks_updated", handleBlocksUpdated);
     socket.on("message_deleted", handleMessageDeleted);
     socket.on("message_removed", handleMessageRemoved);
 
@@ -495,6 +507,8 @@ const useSocket = () => {
       socket.off("chat_cleared", handleChatCleared);
       socket.off("chat_deleted", handleChatDeleted);
       socket.off("user_removed", handleUserRemoved);
+      socket.off("conversation_prefs", handleConversationPrefs);
+      socket.off("blocks_updated", handleBlocksUpdated);
       socket.off("message_deleted", handleMessageDeleted);
       socket.off("message_removed", handleMessageRemoved);
 

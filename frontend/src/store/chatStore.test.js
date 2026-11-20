@@ -168,3 +168,49 @@ test("removeConversation drops it and closes it if open", () => {
   state().removeConversation("nope");
   assert.equal(state().conversations.length, 1);
 });
+
+test("pin / mute / archive flags are applied, and survive a live update", () => {
+  reset();
+  state().setConversations([{ _id: "c1", groupName: "G", participants: [] }]);
+  state().applyConversationPrefs("c1", { pinned: true, muted: true, junk: "x" });
+  assert.equal(state().conversations[0].pinned, true);
+  assert.equal(state().conversations[0].muted, true);
+  assert.equal("junk" in state().conversations[0], false);
+  // a renamed group arrives without my flags: they must not be lost
+  state().addOrUpdateConversation({ _id: "c1", groupName: "Renamed", participants: [] });
+  assert.equal(state().conversations[0].groupName, "Renamed");
+  assert.equal(state().conversations[0].pinned, true);
+  assert.equal(state().conversations[0].muted, true);
+});
+
+test("a new message brings an archived chat back", () => {
+  reset();
+  state().setConversations([{ _id: "c1", archived: true, participants: [] }]);
+  state().updateConversationLastMessage("c1", msg("m1", 5, { sender: { _id: "u2" } }), null, "u1");
+  assert.equal(state().conversations[0].archived, false);
+});
+
+test("delete for everyone wipes the text, its quotes and the list preview", () => {
+  reset();
+  state().setConversations([{ _id: "c1", lastMessage: msg("m1", 1), participants: [] }]);
+  state().setActiveConversation({ _id: "c1" });
+  state().setMessages([msg("m1", 1), msg("m2", 2, { replyTo: { _id: "m1", text: "m1" } })]);
+  state().markMessageDeleted("c1", "m1", "2026-01-01T00:00:00Z");
+  assert.equal(state().messages[0].text, "");
+  assert.ok(state().messages[0].deletedAt);
+  assert.ok(state().messages[1].replyTo.deletedAt);
+  assert.ok(state().conversations[0].lastMessage.deletedAt);
+  state().removeMessage("m2");
+  assert.deepEqual(state().messages.map((m) => m._id), ["m1"]);
+});
+
+test("blocked ids are stored, junk becomes an empty list, logout forgets them", () => {
+  reset();
+  state().setBlockedIds(["u2"]);
+  assert.deepEqual(state().blockedIds, ["u2"]);
+  state().setBlockedIds(undefined);
+  assert.deepEqual(state().blockedIds, []);
+  state().setBlockedIds(["u3"]);
+  reset();
+  assert.deepEqual(state().blockedIds, []);
+});

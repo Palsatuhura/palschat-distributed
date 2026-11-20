@@ -27,7 +27,18 @@ const initialData = () => ({
   typingUsers: {}, // { conversationId: { userId: userName } }
   isLoadingMessages: false,
   unreadCounts: {}, // { conversationId: count }
+  blockedIds: [], // people I blocked
 });
+
+// My own pin / mute / archive flags travel with the conversation. Live
+// updates from the server (a renamed group, say) do not carry them, so keep
+// what is already known.
+const PREF_KEYS = ["pinned", "muted", "archived"];
+const keepPrefs = (old) => {
+  const kept = {};
+  for (const key of PREF_KEYS) if (old && old[key] !== undefined) kept[key] = old[key];
+  return kept;
+};
 
 // Chat order: oldest first, ties broken by id (matches the server's order).
 const byAge = (a, b) =>
@@ -86,7 +97,7 @@ const useChatStore = create((set, get) => ({
       if (exists) {
         return {
           conversations: state.conversations.map((c) =>
-            c._id === conversation._id ? conversation : c
+            c._id === conversation._id ? { ...keepPrefs(c), ...conversation } : c
           ),
           activeConversation,
         };
@@ -153,6 +164,20 @@ const useChatStore = create((set, get) => ({
   /** "Delete for me": drop one message from my screen. */
   removeMessage: (messageId) =>
     set((state) => ({ messages: state.messages.filter((m) => m._id !== messageId) })),
+
+  /** My pin / mute / archive settings changed (here or on another device). */
+  applyConversationPrefs: (conversationId, prefs) =>
+    set((state) => {
+      const patch = {};
+      for (const key of PREF_KEYS) if (typeof prefs[key] === "boolean") patch[key] = prefs[key];
+      const apply = (c) => (c && c._id === conversationId ? { ...c, ...patch } : c);
+      return {
+        conversations: state.conversations.map(apply),
+        activeConversation: apply(state.activeConversation),
+      };
+    }),
+
+  setBlockedIds: (blockedIds) => set({ blockedIds: Array.isArray(blockedIds) ? blockedIds : [] }),
 
   /** A person deleted their account: take them off the People list. */
   removeUser: (userId) =>
@@ -226,7 +251,7 @@ const useChatStore = create((set, get) => ({
     set((state) => {
       const conversations = state.conversations.map((c) => {
         if (c._id === conversationId) {
-          return { ...c, lastMessage: message, updatedAt: message.createdAt };
+          return { ...c, lastMessage: message, updatedAt: message.createdAt, archived: false };
         }
         return c;
       });
