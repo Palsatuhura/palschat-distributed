@@ -10,6 +10,37 @@
  *   - showStatus: boolean (default true)
  */
 
+import { defaultAvatarKind } from "../lib/gender";
+
+// Plain person pictures used until someone uploads their own.
+// They fill their box, so wrap them in a round container.
+export const DefaultAvatarIcon = ({ gender = "unspecified" }) => {
+  const palette = {
+    male: ["#dbeafe", "#3b82f6"],
+    female: ["#fce7f3", "#ec4899"],
+    unspecified: ["#e5e7eb", "#6b7280"],
+  }[gender] || ["#e5e7eb", "#6b7280"];
+  const [bg, fg] = palette;
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full" role="img" aria-label={`${gender} profile picture`}>
+      <rect width="40" height="40" fill={bg} />
+      {gender === "female" ? (
+        <>
+          {/* long hair behind the head and shoulders */}
+          <path d="M11 22c0-8 3-13 9-13s9 5 9 13v6H11z" fill={fg} opacity="0.55" />
+          <circle cx="20" cy="16" r="6" fill={fg} />
+          <path d="M7 40c0-8 5-12 13-12s13 4 13 12z" fill={fg} />
+        </>
+      ) : (
+        <>
+          <circle cx="20" cy="15" r="6.5" fill={fg} />
+          <path d="M6 40c0-9 6-14 14-14s14 5 14 14z" fill={fg} />
+        </>
+      )}
+    </svg>
+  );
+};
+
 // Generates a consistent color based on the user's name
 const getAvatarColor = (name = "") => {
   const colors = [
@@ -49,10 +80,8 @@ const UserAvatar = ({ user, isOnline = false, size = "md", showStatus = true }) 
           className={`${sz} rounded-full object-cover`}
         />
       ) : (
-        <div
-          className={`${sz} ${getAvatarColor(user?.name)} rounded-full flex items-center justify-center font-semibold text-white`}
-        >
-          {getInitials(user?.name)}
+        <div className={`${sz} rounded-full overflow-hidden flex`}>
+          <DefaultAvatarIcon gender={defaultAvatarKind(user)} />
         </div>
       )}
 

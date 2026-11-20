@@ -184,6 +184,18 @@ const validateAbout = (value) => {
 };
 
 /**
+ * Validate the gender choice. Returns { gender } or { error }.
+ * Only used to pick the default profile picture.
+ */
+const GENDERS = ["male", "female", "unspecified"];
+const validateGender = (value) => {
+  if (typeof value !== "string" || !GENDERS.includes(value)) {
+    return { error: "Please choose male, female or prefer not to say" };
+  }
+  return { gender: value };
+};
+
+/**
  * Validate a group name. Returns { groupName } (trimmed) or { error }.
  */
 const validateGroupName = (value) => {
@@ -222,6 +234,7 @@ module.exports = {
   validateGroupDescription,
   validateAvatar,
   validateAbout,
+  validateGender,
   dmKeyFor,
   isValidObjectId,
   normalizeParticipantIds,

@@ -1,3 +1,4 @@
+import GenderPicker from "../components/GenderPicker";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
@@ -20,6 +21,7 @@ const RegisterPage = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    gender: "",
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +38,9 @@ const RegisterPage = () => {
     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
       return setError("Please fill in all fields");
     }
+    if (!formData.gender) {
+      return setError("Please choose male, female or prefer not to say");
+    }
     if (formData.name.length < 2) {
       return setError("Name must be at least 2 characters");
     }
@@ -51,6 +56,7 @@ const RegisterPage = () => {
       const { data } = await api.post("/auth/register", {
         name: formData.name,
         email: formData.email,
+        gender: formData.gender,
         password: formData.password,
       });
       login(data.user, data.token);
@@ -92,6 +98,17 @@ const RegisterPage = () => {
                 className="w-full px-4 py-2.5 border border-line-strong rounded-xl text-ink placeholder-ink-4
                            focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               />
+            </div>
+            <div>
+              <span className="block text-sm font-medium text-ink-2 mb-1">Gender</span>
+              <GenderPicker
+                value={formData.gender}
+                onChange={(gender) => {
+                  setFormData((prev) => ({ ...prev, gender }));
+                  setError("");
+                }}
+              />
+              <p className="text-xs text-ink-4 mt-1">Used only to choose your default profile picture.</p>
             </div>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-ink-2 mb-1">

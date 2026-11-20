@@ -3,6 +3,8 @@ import api from "../lib/axios";
 import { imageFileToAvatar } from "../lib/image";
 import useAuthStore from "../store/authStore";
 import UserAvatar from "./UserAvatar";
+import GenderPicker from "./GenderPicker";
+import { genderOf } from "../lib/gender";
 
 const MAX_ABOUT = 140;
 
@@ -18,6 +20,7 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
   const fileRef = useRef(null);
   const [avatar, setAvatar] = useState(user?.avatar || "");
   const [name, setName] = useState(user?.name || "");
+  const [gender, setGender] = useState(genderOf(user));
   const [about, setAbout] = useState(user?.about || "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,8 +45,8 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
     }
     setBusy(true);
     try {
-      const { data } = await api.patch("/users/me", { name, avatar, about });
-      updateUser({ name: data.name, avatar: data.avatar, about: data.about });
+      const { data } = await api.patch("/users/me", { name, avatar, gender, about });
+      updateUser({ name: data.name, avatar: data.avatar, gender: data.gender, about: data.about });
       onClose();
     } catch (err) {
       setError(err.response?.data?.message || "Could not save. Please try again.");
@@ -66,7 +69,7 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
         <h2 className="text-lg font-semibold text-ink mb-4">Your profile</h2>
 
         <div className="flex flex-col items-center gap-3">
-          <UserAvatar user={{ ...user, avatar }} size="xl" showStatus={false} />
+          <UserAvatar user={{ ...user, avatar, gender }} size="xl" showStatus={false} />
           <div className="flex gap-2">
             <button
               type="button"
@@ -106,6 +109,9 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
           className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
         />
         <p className="text-xs text-ink-4 mt-1">Email: {user?.email} (cannot be changed here)</p>
+
+        <span className="block text-sm font-medium text-ink-2 mt-3 mb-1">Gender</span>
+        <GenderPicker value={gender} onChange={setGender} name="profile-gender" />
 
         <label className="block text-sm font-medium text-ink-2 mt-3 mb-1" htmlFor="about">
           About

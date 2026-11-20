@@ -1,6 +1,6 @@
 const User = require("../models/User");
 const { PUBLIC_USER_FIELDS } = require("../utils/constants");
-const { validateAvatar, validateAbout, validateName } = require("../utils/validators");
+const { validateAvatar, validateAbout, validateName, validateGender } = require("../utils/validators");
 
 /**
  * GET /api/users
@@ -46,6 +46,12 @@ const updateMe = async (req, res) => {
       updates.avatar = avatar;
     }
 
+    if (body.gender !== undefined) {
+      const { gender, error } = validateGender(body.gender);
+      if (error) return res.status(400).json({ message: error });
+      updates.gender = gender;
+    }
+
     if (body.about !== undefined) {
       const { about, error } = validateAbout(body.about);
       if (error) return res.status(400).json({ message: error });
@@ -68,6 +74,7 @@ const updateMe = async (req, res) => {
       _id: user._id,
       name: user.name,
       avatar: user.avatar,
+      gender: user.gender,
       about: user.about,
     };
 

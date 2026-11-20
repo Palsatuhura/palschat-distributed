@@ -48,3 +48,13 @@ test("validateAbout trims, allows empty, and caps the length", () => {
   assert.ok(validateAbout(5).error);
   assert.ok(validateAbout({ $ne: null }).error);
 });
+
+test("validateGender accepts the three choices and nothing else", () => {
+  const { validateGender } = require("../src/utils/validators");
+  assert.deepEqual(validateGender("male"), { gender: "male" });
+  assert.deepEqual(validateGender("female"), { gender: "female" });
+  assert.deepEqual(validateGender("unspecified"), { gender: "unspecified" });
+  for (const bad of ["", "Male", "other", null, undefined, 1, { $ne: "" }, ["male"]]) {
+    assert.ok(validateGender(bad).error, `should reject ${JSON.stringify(bad)}`);
+  }
+});

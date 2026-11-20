@@ -34,6 +34,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // Chosen at signup; only decides which default picture is shown.
+    gender: {
+      type: String,
+      enum: ["male", "female", "unspecified"],
+      default: "unspecified",
+    },
     // Short status line shown on the profile
     about: {
       type: String,

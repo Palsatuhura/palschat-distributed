@@ -1,0 +1,435 @@
+diff --git a/backend/src/controllers/accountController.js b/backend/src/controllers/accountController.js
+index a984317..76ab143 100644
+--- a/backend/src/controllers/accountController.js
++++ b/backend/src/controllers/accountController.js
+@@ -74,6 +74,7 @@ const deleteMe = async (req, res) => {
+           email: `deleted-${userId}@deleted.invalid`,
+           password: "!deleted", // not a valid hash: nothing can ever match it
+           avatar: "",
++          gender: "unspecified",
+           about: "",
+           isOnline: false,
+           deletedAt: new Date(),
+@@ -94,6 +95,7 @@ const deleteMe = async (req, res) => {
+         _id: userId,
+         name: "Deleted user",
+         avatar: "",
++        gender: "unspecified",
+         about: "",
+         deletedAt: new Date(),
+       });
+diff --git a/backend/src/controllers/authController.js b/backend/src/controllers/authController.js
+index 83bc678..94e63a5 100755
+--- a/backend/src/controllers/authController.js
++++ b/backend/src/controllers/authController.js
+@@ -6,6 +6,7 @@ const {
+   normalizeEmail,
+   validateNewPassword,
+   validateName,
++  validateGender,
+ } = require("../utils/validators");
+ const { MAX_LOGIN_PASSWORD_LENGTH } = require("../utils/constants");
+ 
+@@ -24,6 +25,7 @@ const publicUser = (user) => ({
+   name: user.name,
+   email: user.email,
+   avatar: user.avatar,
++  gender: user.gender,
+   about: user.about,
+   isOnline: user.isOnline,
+ });
+@@ -45,6 +47,13 @@ const register = async (req, res) => {
+       return res.status(400).json({ message: nameError });
+     }
+ 
++    const { gender, error: genderError } = validateGender(
++      body.gender === undefined ? "unspecified" : body.gender
++    );
++    if (genderError) {
++      return res.status(400).json({ message: genderError });
++    }
++
+     const email = normalizeEmail(body.email);
+     if (!email) {
+       return res.status(400).json({ message: "Please provide a valid email address" });
+@@ -62,7 +71,7 @@ const register = async (req, res) => {
+     }
+ 
+     // Create user (password hashed automatically by mongoose pre-save hook)
+-    const user = await User.create({ name, email, password: body.password });
++    const user = await User.create({ name, email, gender, password: body.password });
+ 
+     const { token } = await createSession(user, req);
+ 
+diff --git a/backend/src/controllers/userController.js b/backend/src/controllers/userController.js
+index aafcdc4..2e82154 100755
+--- a/backend/src/controllers/userController.js
++++ b/backend/src/controllers/userController.js
+@@ -1,6 +1,6 @@
+ const User = require("../models/User");
+ const { PUBLIC_USER_FIELDS } = require("../utils/constants");
+-const { validateAvatar, validateAbout, validateName } = require("../utils/validators");
++const { validateAvatar, validateAbout, validateName, validateGender } = require("../utils/validators");
+ 
+ /**
+  * GET /api/users
+@@ -46,6 +46,12 @@ const updateMe = async (req, res) => {
+       updates.avatar = avatar;
+     }
+ 
++    if (body.gender !== undefined) {
++      const { gender, error } = validateGender(body.gender);
++      if (error) return res.status(400).json({ message: error });
++      updates.gender = gender;
++    }
++
+     if (body.about !== undefined) {
+       const { about, error } = validateAbout(body.about);
+       if (error) return res.status(400).json({ message: error });
+@@ -68,6 +74,7 @@ const updateMe = async (req, res) => {
+       _id: user._id,
+       name: user.name,
+       avatar: user.avatar,
++      gender: user.gender,
+       about: user.about,
+     };
+ 
+diff --git a/backend/src/models/User.js b/backend/src/models/User.js
+index 6a3dd7c..46811d2 100755
+--- a/backend/src/models/User.js
++++ b/backend/src/models/User.js
+@@ -34,6 +34,12 @@ const userSchema = new mongoose.Schema(
+       type: String,
+       default: "",
+     },
++    // Chosen at signup; only decides which default picture is shown.
++    gender: {
++      type: String,
++      enum: ["male", "female", "unspecified"],
++      default: "unspecified",
++    },
+     // Short status line shown on the profile
+     about: {
+       type: String,
+diff --git a/backend/src/utils/constants.js b/backend/src/utils/constants.js
+index 13a19af..39c3212 100644
+--- a/backend/src/utils/constants.js
++++ b/backend/src/utils/constants.js
+@@ -7,7 +7,7 @@
+ 
+ // Fields of another user that are safe to show to any authenticated user.
+ // Deliberately excludes email, password and timestamps.
+-const PUBLIC_USER_FIELDS = "name avatar about isOnline lastSeen deletedAt";
++const PUBLIC_USER_FIELDS = "name avatar gender about isOnline lastSeen deletedAt";
+ 
+ // Must match the maxlength on Message.text in models/Message.js.
+ const MAX_MESSAGE_LENGTH = 2000;
+diff --git a/backend/src/utils/validators.js b/backend/src/utils/validators.js
+index 68a9b57..18afcd1 100644
+--- a/backend/src/utils/validators.js
++++ b/backend/src/utils/validators.js
+@@ -183,6 +183,18 @@ const validateAbout = (value) => {
+   return { about };
+ };
+ 
++/**
++ * Validate the gender choice. Returns { gender } or { error }.
++ * Only used to pick the default profile picture.
++ */
++const GENDERS = ["male", "female", "unspecified"];
++const validateGender = (value) => {
++  if (typeof value !== "string" || !GENDERS.includes(value)) {
++    return { error: "Please choose male, female or prefer not to say" };
++  }
++  return { gender: value };
++};
++
+ /**
+  * Validate a group name. Returns { groupName } (trimmed) or { error }.
+  */
+@@ -222,6 +234,7 @@ module.exports = {
+   validateGroupDescription,
+   validateAvatar,
+   validateAbout,
++  validateGender,
+   dmKeyFor,
+   isValidObjectId,
+   normalizeParticipantIds,
+diff --git a/backend/test/profile-validators.test.js b/backend/test/profile-validators.test.js
+index fd5c424..e7ba733 100644
+--- a/backend/test/profile-validators.test.js
++++ b/backend/test/profile-validators.test.js
+@@ -48,3 +48,13 @@ test("validateAbout trims, allows empty, and caps the length", () => {
+   assert.ok(validateAbout(5).error);
+   assert.ok(validateAbout({ $ne: null }).error);
+ });
++
++test("validateGender accepts the three choices and nothing else", () => {
++  const { validateGender } = require("../src/utils/validators");
++  assert.deepEqual(validateGender("male"), { gender: "male" });
++  assert.deepEqual(validateGender("female"), { gender: "female" });
++  assert.deepEqual(validateGender("unspecified"), { gender: "unspecified" });
++  for (const bad of ["", "Male", "other", null, undefined, 1, { $ne: "" }, ["male"]]) {
++    assert.ok(validateGender(bad).error, `should reject ${JSON.stringify(bad)}`);
++  }
++});
+diff --git a/frontend/src/components/GenderPicker.jsx b/frontend/src/components/GenderPicker.jsx
+new file mode 100644
+index 0000000..2a52085
+--- /dev/null
++++ b/frontend/src/components/GenderPicker.jsx
+@@ -0,0 +1,36 @@
++import { GENDER_CHOICES } from "../lib/gender";
++import { DefaultAvatarIcon } from "./UserAvatar";
++
++/**
++ * Three big buttons to choose male, female or prefer not to say.
++ * The icon on each button is the default picture that choice gives.
++ */
++const GenderPicker = ({ value, onChange, name = "gender" }) => (
++  <div role="radiogroup" aria-label="Gender" className="grid grid-cols-3 gap-2">
++    {GENDER_CHOICES.map((c) => {
++      const selected = value === c.value;
++      return (
++        <button
++          key={c.value}
++          type="button"
++          role="radio"
++          aria-checked={selected}
++          name={name}
++          onClick={() => onChange(c.value)}
++          className={`flex flex-col items-center gap-1.5 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
++            selected
++              ? "border-brand bg-brand-soft text-brand-text"
++              : "border-line-strong text-ink-2 hover:bg-surface-2"
++          }`}
++        >
++          <span className="w-9 h-9 rounded-full overflow-hidden flex">
++            <DefaultAvatarIcon gender={c.value} />
++          </span>
++          {c.label}
++        </button>
++      );
++    })}
++  </div>
++);
++
++export default GenderPicker;
+diff --git a/frontend/src/components/ProfileModal.jsx b/frontend/src/components/ProfileModal.jsx
+index b1b6d56..ddfb3bf 100644
+--- a/frontend/src/components/ProfileModal.jsx
++++ b/frontend/src/components/ProfileModal.jsx
+@@ -3,6 +3,8 @@ import api from "../lib/axios";
+ import { imageFileToAvatar } from "../lib/image";
+ import useAuthStore from "../store/authStore";
+ import UserAvatar from "./UserAvatar";
++import GenderPicker from "./GenderPicker";
++import { genderOf } from "../lib/gender";
+ 
+ const MAX_ABOUT = 140;
+ 
+@@ -18,6 +20,7 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
+   const fileRef = useRef(null);
+   const [avatar, setAvatar] = useState(user?.avatar || "");
+   const [name, setName] = useState(user?.name || "");
++  const [gender, setGender] = useState(genderOf(user));
+   const [about, setAbout] = useState(user?.about || "");
+   const [error, setError] = useState("");
+   const [busy, setBusy] = useState(false);
+@@ -42,8 +45,8 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
+     }
+     setBusy(true);
+     try {
+-      const { data } = await api.patch("/users/me", { name, avatar, about });
+-      updateUser({ name: data.name, avatar: data.avatar, about: data.about });
++      const { data } = await api.patch("/users/me", { name, avatar, gender, about });
++      updateUser({ name: data.name, avatar: data.avatar, gender: data.gender, about: data.about });
+       onClose();
+     } catch (err) {
+       setError(err.response?.data?.message || "Could not save. Please try again.");
+@@ -66,7 +69,7 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
+         <h2 className="text-lg font-semibold text-ink mb-4">Your profile</h2>
+ 
+         <div className="flex flex-col items-center gap-3">
+-          <UserAvatar user={{ ...user, avatar }} size="xl" showStatus={false} />
++          <UserAvatar user={{ ...user, avatar, gender }} size="xl" showStatus={false} />
+           <div className="flex gap-2">
+             <button
+               type="button"
+@@ -107,6 +110,9 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
+         />
+         <p className="text-xs text-ink-4 mt-1">Email: {user?.email} (cannot be changed here)</p>
+ 
++        <span className="block text-sm font-medium text-ink-2 mt-3 mb-1">Gender</span>
++        <GenderPicker value={gender} onChange={setGender} name="profile-gender" />
++
+         <label className="block text-sm font-medium text-ink-2 mt-3 mb-1" htmlFor="about">
+           About
+         </label>
+diff --git a/frontend/src/components/UserAvatar.jsx b/frontend/src/components/UserAvatar.jsx
+index dbbf22c..656f9bd 100755
+--- a/frontend/src/components/UserAvatar.jsx
++++ b/frontend/src/components/UserAvatar.jsx
+@@ -10,6 +10,37 @@
+  *   - showStatus: boolean (default true)
+  */
+ 
++import { defaultAvatarKind } from "../lib/gender";
++
++// Plain person pictures used until someone uploads their own.
++// They fill their box, so wrap them in a round container.
++export const DefaultAvatarIcon = ({ gender = "unspecified" }) => {
++  const palette = {
++    male: ["#dbeafe", "#3b82f6"],
++    female: ["#fce7f3", "#ec4899"],
++    unspecified: ["#e5e7eb", "#6b7280"],
++  }[gender] || ["#e5e7eb", "#6b7280"];
++  const [bg, fg] = palette;
++  return (
++    <svg viewBox="0 0 40 40" className="w-full h-full" role="img" aria-label={`${gender} profile picture`}>
++      <rect width="40" height="40" fill={bg} />
++      {gender === "female" ? (
++        <>
++          {/* long hair behind the head and shoulders */}
++          <path d="M11 22c0-8 3-13 9-13s9 5 9 13v6H11z" fill={fg} opacity="0.55" />
++          <circle cx="20" cy="16" r="6" fill={fg} />
++          <path d="M7 40c0-8 5-12 13-12s13 4 13 12z" fill={fg} />
++        </>
++      ) : (
++        <>
++          <circle cx="20" cy="15" r="6.5" fill={fg} />
++          <path d="M6 40c0-9 6-14 14-14s14 5 14 14z" fill={fg} />
++        </>
++      )}
++    </svg>
++  );
++};
++
+ // Generates a consistent color based on the user's name
+ const getAvatarColor = (name = "") => {
+   const colors = [
+@@ -49,10 +80,8 @@ const UserAvatar = ({ user, isOnline = false, size = "md", showStatus = true })
+           className={`${sz} rounded-full object-cover`}
+         />
+       ) : (
+-        <div
+-          className={`${sz} ${getAvatarColor(user?.name)} rounded-full flex items-center justify-center font-semibold text-white`}
+-        >
+-          {getInitials(user?.name)}
++        <div className={`${sz} rounded-full overflow-hidden flex`}>
++          <DefaultAvatarIcon gender={defaultAvatarKind(user)} />
+         </div>
+       )}
+ 
+diff --git a/frontend/src/hooks/useSocket.js b/frontend/src/hooks/useSocket.js
+index 5d0581d..c7418a4 100755
+--- a/frontend/src/hooks/useSocket.js
++++ b/frontend/src/hooks/useSocket.js
+@@ -225,6 +225,7 @@ const useSocket = () => {
+     const handleUserUpdated = (profile) => {
+       if (!profile || !profile._id) return;
+       const patch = { avatar: profile.avatar, about: profile.about };
++      if (profile.gender) patch.gender = profile.gender;
+       if (profile.name) patch.name = profile.name;
+       if (profile.deletedAt) patch.deletedAt = profile.deletedAt;
+       useChatStore.getState().updateUserProfile(profile._id, patch);
+diff --git a/frontend/src/lib/gender.js b/frontend/src/lib/gender.js
+new file mode 100644
+index 0000000..80ff00e
+--- /dev/null
++++ b/frontend/src/lib/gender.js
+@@ -0,0 +1,17 @@
++/** The choices offered at signup and in the profile. */
++export const GENDER_CHOICES = [
++  { value: "male", label: "Male" },
++  { value: "female", label: "Female" },
++  { value: "unspecified", label: "Prefer not to say" },
++];
++
++export const isGender = (v) => GENDER_CHOICES.some((c) => c.value === v);
++
++/** Anything unexpected (old accounts, missing field) counts as unspecified. */
++export const genderOf = (user) => (isGender(user?.gender) ? user.gender : "unspecified");
++
++/**
++ * Which default picture to draw when someone has not uploaded one.
++ * Deleted users always get the neutral icon.
++ */
++export const defaultAvatarKind = (user) => (user?.deletedAt ? "unspecified" : genderOf(user));
+diff --git a/frontend/src/lib/gender.test.js b/frontend/src/lib/gender.test.js
+new file mode 100644
+index 0000000..92aec22
+--- /dev/null
++++ b/frontend/src/lib/gender.test.js
+@@ -0,0 +1,18 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { genderOf, defaultAvatarKind, isGender } from "./gender.js";
++
++test("genderOf falls back to unspecified", () => {
++  assert.equal(genderOf({ gender: "male" }), "male");
++  assert.equal(genderOf({ gender: "female" }), "female");
++  assert.equal(genderOf({}), "unspecified");
++  assert.equal(genderOf(null), "unspecified");
++  assert.equal(genderOf({ gender: "robot" }), "unspecified");
++  assert.equal(isGender("male"), true);
++  assert.equal(isGender("x"), false);
++});
++
++test("deleted users get the neutral icon", () => {
++  assert.equal(defaultAvatarKind({ gender: "female", deletedAt: "2026-01-01" }), "unspecified");
++  assert.equal(defaultAvatarKind({ gender: "female" }), "female");
++});
+diff --git a/frontend/src/pages/RegisterPage.jsx b/frontend/src/pages/RegisterPage.jsx
+index 1e18f26..4877924 100755
+--- a/frontend/src/pages/RegisterPage.jsx
++++ b/frontend/src/pages/RegisterPage.jsx
+@@ -1,3 +1,4 @@
++import GenderPicker from "../components/GenderPicker";
+ import { useState } from "react";
+ import { Link, useNavigate } from "react-router-dom";
+ import api from "../lib/axios";
+@@ -20,6 +21,7 @@ const RegisterPage = () => {
+     email: "",
+     password: "",
+     confirmPassword: "",
++    gender: "",
+   });
+   const [error, setError] = useState("");
+   const [isLoading, setIsLoading] = useState(false);
+@@ -36,6 +38,9 @@ const RegisterPage = () => {
+     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+       return setError("Please fill in all fields");
+     }
++    if (!formData.gender) {
++      return setError("Please choose male, female or prefer not to say");
++    }
+     if (formData.name.length < 2) {
+       return setError("Name must be at least 2 characters");
+     }
+@@ -51,6 +56,7 @@ const RegisterPage = () => {
+       const { data } = await api.post("/auth/register", {
+         name: formData.name,
+         email: formData.email,
++        gender: formData.gender,
+         password: formData.password,
+       });
+       login(data.user, data.token);
+@@ -93,6 +99,17 @@ const RegisterPage = () => {
+                            focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
+               />
+             </div>
++            <div>
++              <span className="block text-sm font-medium text-ink-2 mb-1">Gender</span>
++              <GenderPicker
++                value={formData.gender}
++                onChange={(gender) => {
++                  setFormData((prev) => ({ ...prev, gender }));
++                  setError("");
++                }}
++              />
++              <p className="text-xs text-ink-4 mt-1">Used only to choose your default profile picture.</p>
++            </div>
+             <div>
+               <label htmlFor="email" className="block text-sm font-medium text-ink-2 mb-1">
+                 Email address

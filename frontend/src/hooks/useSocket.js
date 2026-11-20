@@ -225,6 +225,7 @@ const useSocket = () => {
     const handleUserUpdated = (profile) => {
       if (!profile || !profile._id) return;
       const patch = { avatar: profile.avatar, about: profile.about };
+      if (profile.gender) patch.gender = profile.gender;
       if (profile.name) patch.name = profile.name;
       if (profile.deletedAt) patch.deletedAt = profile.deletedAt;
       useChatStore.getState().updateUserProfile(profile._id, patch);

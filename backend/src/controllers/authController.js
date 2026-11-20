@@ -6,6 +6,7 @@ const {
   normalizeEmail,
   validateNewPassword,
   validateName,
+  validateGender,
 } = require("../utils/validators");
 const { MAX_LOGIN_PASSWORD_LENGTH } = require("../utils/constants");
 
@@ -24,6 +25,7 @@ const publicUser = (user) => ({
   name: user.name,
   email: user.email,
   avatar: user.avatar,
+  gender: user.gender,
   about: user.about,
   isOnline: user.isOnline,
 });
@@ -45,6 +47,13 @@ const register = async (req, res) => {
       return res.status(400).json({ message: nameError });
     }
 
+    const { gender, error: genderError } = validateGender(
+      body.gender === undefined ? "unspecified" : body.gender
+    );
+    if (genderError) {
+      return res.status(400).json({ message: genderError });
+    }
+
     const email = normalizeEmail(body.email);
     if (!email) {
       return res.status(400).json({ message: "Please provide a valid email address" });
@@ -62,7 +71,7 @@ const register = async (req, res) => {
     }
 
     // Create user (password hashed automatically by mongoose pre-save hook)
-    const user = await User.create({ name, email, password: body.password });
+    const user = await User.create({ name, email, gender, password: body.password });
 
     const { token } = await createSession(user, req);
 

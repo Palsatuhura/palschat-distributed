@@ -74,6 +74,7 @@ const deleteMe = async (req, res) => {
           email: `deleted-${userId}@deleted.invalid`,
           password: "!deleted", // not a valid hash: nothing can ever match it
           avatar: "",
+          gender: "unspecified",
           about: "",
           isOnline: false,
           deletedAt: new Date(),
@@ -94,6 +95,7 @@ const deleteMe = async (req, res) => {
         _id: userId,
         name: "Deleted user",
         avatar: "",
+        gender: "unspecified",
         about: "",
         deletedAt: new Date(),
       });
