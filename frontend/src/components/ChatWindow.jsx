@@ -9,6 +9,7 @@ import InfoPanel from "./InfoPanel";
 import GroupAvatar from "./GroupAvatar";
 import ConfirmDialog from "./ConfirmDialog";
 import { dayLabel, isSameDay } from "../lib/dayLabel";
+import { attemptFor, shouldRetry } from "../lib/sendRetry";
 import { isNearBottom, shouldFollowNewMessage } from "../lib/scrollRules";
 import { SkeletonMessages } from "./Skeleton";
 import { ACCEPT, formatSize, previewText } from "../lib/attachmentInfo";
@@ -242,6 +243,7 @@ const ChatWindow = ({ onMenuClick }) => {
 
   // Is the reader at the bottom? Kept in a ref (for the effect below) and in
   // state (to show or hide the "jump to latest" button).
+  const attemptRef = useRef(null); // label of the message being sent
   const nearBottomRef = useRef(true);
   const openedChatRef = useRef(null);
   const [showJump, setShowJump] = useState(false);
@@ -399,50 +401,62 @@ const ChatWindow = ({ onMenuClick }) => {
       setUploadPercent(null);
     }
 
+    // The same label goes with every attempt at this message, so a retry
+    // after a dropped connection cannot create a second copy.
+    attemptRef.current = attemptFor(attemptRef.current, {
+      conversationId,
+      text,
+      attachmentId,
+      replyTo: replyingTo?._id,
+    });
+    const { clientId } = attemptRef.current;
+    const payload = {
+      conversationId,
+      text,
+      clientId,
+      ...(attachmentId ? { attachment: attachmentId } : {}),
+      ...(replyingTo ? { replyTo: replyingTo._id } : {}),
+    };
+
     // timeout(): if the server never answers, the callback receives an error
-    // instead of waiting forever.
-    socket
-      .timeout(SEND_TIMEOUT_MS)
-      .emit(
-        "send_message",
-        {
-          conversationId,
-          text,
-          ...(attachmentId ? { attachment: attachmentId } : {}),
-          ...(replyingTo ? { replyTo: replyingTo._id } : {}),
-        },
-        (error, response) => {
+    // instead of waiting forever. We then try again (safe, see above).
+    const attemptSend = (attemptNumber) => {
+      socket.timeout(SEND_TIMEOUT_MS).emit("send_message", payload, (error, response) => {
+        if (error) {
+          if (shouldRetry(attemptNumber)) {
+            attemptSend(attemptNumber + 1);
+            return;
+          }
           setIsSending(false);
-
-          if (error) {
-            setSendError(
-              "No confirmation from the server. Check the chat before sending again."
-            );
-            return;
-          }
-
-          if (!response?.ok) {
-            setSendError(
-              response?.message || "Message could not be sent."
-            );
-            return;
-          }
-
-          // Clear the box, unless the user already started typing something else.
-          setInputText((current) => (current === text ? "" : current));
-          setReplyingTo(null);
-          setPendingFile(null);
-
-          // Show it right away if its conversation is still open (the same
-          // message also arrives via receive_message; the store drops the copy).
-          if (
-            response.message &&
-            useChatStore.getState().activeConversation?._id === conversationId
-          ) {
-            addMessage(response.message);
-          }
+          setSendError(
+            "No answer from the server. Check your connection and press send again; your message will not be sent twice."
+          );
+          return;
         }
-      );
+
+        setIsSending(false);
+
+        if (!response?.ok) {
+          setSendError(response?.message || "Message could not be sent.");
+          return;
+        }
+
+        // Done: the next message gets a new label.
+        attemptRef.current = null;
+
+        // Clear the box, unless the user already started typing something else.
+        setInputText((current) => (current === text ? "" : current));
+        setReplyingTo(null);
+        setPendingFile(null);
+
+        // Show it right away if its conversation is still open (the same
+        // message also arrives via receive_message; the store drops the copy).
+        if (useChatStore.getState().activeConversation?._id === conversationId) {
+          addMessage(response.message);
+        }
+      });
+    };
+    attemptSend(1);
   };
 
   const handleKeyDown = (e) => {

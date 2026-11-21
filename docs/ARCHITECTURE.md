@@ -62,6 +62,10 @@ sequenceDiagram
 - `session:<id>`: one login, so it can be ended instantly
 - `conversation:<id>`: typing indicators for the open chat
 
+## Safe re-sending
+
+Every message carries a random `clientId`. If the connection drops and the browser sends the message again, the server finds the message already saved for that sender and `clientId` and returns it instead of saving a second copy. A unique database index on (sender, clientId) closes the remaining race when two copies arrive at the same moment. The browser retries up to three times automatically.
+
 ## Design choices
 
 - **User id always comes from the token**, never from the request body.

@@ -8,12 +8,16 @@ const {
   logoutAll,
   changePassword,
 } = require("../controllers/sessionController");
+const { forgotPassword, resetPassword } = require("../controllers/passwordResetController");
 const { protect } = require("../middleware/auth");
 const {
   loginIpLimiter,
   loginAccountLimiter,
   registerLimiter,
   passwordChangeLimiter,
+  forgotIpLimiter,
+  forgotAccountLimiter,
+  resetLimiter,
 } = require("../middleware/rateLimiter");
 
 const router = express.Router();
@@ -25,6 +29,11 @@ router.post("/register", registerLimiter, register);
 // Two independent budgets of FAILED attempts: one per IP address, one per
 // account. Successful logins do not consume either.
 router.post("/login", loginIpLimiter, loginAccountLimiter, login);
+
+// POST /api/auth/forgot-password  — email a reset link (same answer for everyone)
+// POST /api/auth/reset-password   — choose a new password with the emailed token
+router.post("/forgot-password", forgotIpLimiter, forgotAccountLimiter, forgotPassword);
+router.post("/reset-password", resetLimiter, resetPassword);
 
 // Sessions (all need a valid login; see controllers/sessionController.js)
 // POST   /api/auth/refresh          — renew the current login quietly

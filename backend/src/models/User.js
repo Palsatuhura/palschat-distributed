@@ -34,6 +34,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // Forgot password: only a hash of the emailed token is kept.
+    resetTokenHash: { type: String, select: false },
+    resetExpiresAt: { type: Date, select: false },
     // Chosen at signup; only decides which default picture is shown.
     gender: {
       type: String,

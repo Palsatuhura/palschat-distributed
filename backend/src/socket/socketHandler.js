@@ -1,3 +1,4 @@
+const { validateClientId, findSavedMessage } = require("../utils/clientId");
 const logger = require("../utils/logger");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
@@ -580,6 +581,19 @@ const socketHandler = (io, presenceClient) => {
           const senderId =
             socket.userId;
 
+          // Optional label that makes a retried send safe (no duplicates).
+          const { clientId, error: clientIdError } =
+            validateClientId(data?.clientId);
+          if (clientIdError) {
+            fail(clientIdError);
+
+            return;
+          }
+
+          // The message already saved for this label, ready to send back.
+          const findDuplicate = () =>
+            findSavedMessage(Message, senderId, clientId);
+
           if (
             !isValidObjectId(
               conversationId
@@ -668,6 +682,19 @@ const socketHandler = (io, presenceClient) => {
             return;
           }
 
+          // A retried send: answer with the message already saved.
+          const duplicate = await findDuplicate();
+          if (duplicate) {
+            if (String(duplicate.conversation) !== String(conversationId)) {
+              fail("Invalid message data");
+
+              return;
+            }
+            respond({ ok: true, message: duplicate });
+
+            return;
+          }
+
           // Optional reply: the quoted message must exist in THIS chat.
           let replyTo = null;
           if (
@@ -723,6 +750,15 @@ const socketHandler = (io, presenceClient) => {
               );
 
             if (!claimed) {
+              // Two copies of the same send can arrive together; the second
+              // one finds the first one's message here.
+              const raced = await findDuplicate();
+              if (raced) {
+                respond({ ok: true, message: raced });
+
+                return;
+              }
+
               fail(
                 "That file is no longer available. Please attach it again."
               );
@@ -749,9 +785,20 @@ const socketHandler = (io, presenceClient) => {
                 text: text.trim(),
                 replyTo,
                 attachment,
+                ...(clientId ? { clientId } : {}),
                 readBy: [senderId],
               });
           } catch (createError) {
+            // Lost a race with an identical send: return the winner.
+            if (createError?.code === 11000 && clientId) {
+              const winner = await findDuplicate();
+              if (winner) {
+                respond({ ok: true, message: winner });
+
+                return;
+              }
+            }
+
             if (attachment) {
               // Give the file back so the sender can try again.
               await Attachment.updateOne(

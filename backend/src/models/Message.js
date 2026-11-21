@@ -31,6 +31,9 @@ const messageSchema = new mongoose.Schema(
       maxlength: [2000, "Message cannot exceed 2000 characters"],
     },
     // A picture or file sent with this message (the bytes live in Attachment).
+    // Random label from the sender's browser, so a retried send is not saved
+    // twice (see utils/clientId.js).
+    clientId: { type: String, maxlength: 64 },
     attachment: {
       type: new mongoose.Schema(
         {
@@ -80,5 +83,11 @@ const messageSchema = new mongoose.Schema(
 // History is always read as "newest messages of one conversation", so the
 // index matches that query exactly (filter, then sort).
 messageSchema.index({ conversation: 1, createdAt: -1, _id: -1 });
+
+// One message per (sender, clientId). Messages without a clientId are exempt.
+messageSchema.index(
+  { sender: 1, clientId: 1 },
+  { unique: true, partialFilterExpression: { clientId: { $type: "string" } } }
+);
 
 module.exports = mongoose.model("Message", messageSchema);

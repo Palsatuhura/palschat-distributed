@@ -22,6 +22,7 @@ Accounts and passwords, private messages and files, the list of who talks to who
 | NoSQL injection | Validators reject objects such as `{ "$ne": "" }`; ids are checked as ObjectIds |
 | Reading other people's chats | Membership check on every conversation, message and file request; ids from the token only |
 | Stolen token | Tokens are short-lived (24 h) and tied to a session; any device can be ended and the socket closes at once |
+| Forgotten password | Emailed link with a 256-bit random token; only its hash is stored; valid 30 minutes, single use; same answer for known and unknown emails; limited per network and per email; a reset signs out every device |
 | Account takeover after password change | Changing the password ends other sessions |
 | Hostile uploads | File type decided by reading the file's first bytes, not its name or claimed type; 4 MB limit; served with `nosniff` and a sandbox CSP; upload rate limit |
 | Flooding | Per-IP API limits; per-socket event limits and a tighter limit on `send_message` |
@@ -36,7 +37,7 @@ Accounts and passwords, private messages and files, the list of who talks to who
 
 - **No end-to-end encryption.** The server and the database host can read messages. Adding it needs key management and changes search, multi-device and group behaviour.
 - **Files are stored in the database**, not scanned for viruses.
-- **No password reset or email verification yet**, so a forgotten password cannot be recovered and email ownership is not proved.
+- **No email verification at signup**, so ownership of an email address is only proved when it is used to reset a password.
 - **Tokens live in the browser's storage**, so a script injected into the page could read one. The React front end avoids raw HTML, and files are served in a sandbox, but this is the usual trade-off of token-based login.
 - **A blocked person is not told** they are blocked until they try to send (intentional).
 
