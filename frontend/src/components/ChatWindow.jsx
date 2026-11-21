@@ -95,9 +95,6 @@ const ChatWindow = ({ onMenuClick }) => {
     const joinConversation = () => {
       if (!socket.connected) return;
 
-      console.log(
-        `📨 Joining conversation room: ${conversationId}`
-      );
 
       socket.emit(
         "join_conversation",
@@ -121,9 +118,6 @@ const ChatWindow = ({ onMenuClick }) => {
       );
 
       if (socket.connected) {
-        console.log(
-          `📤 Leaving conversation room: ${conversationId}`
-        );
 
         socket.emit(
           "leave_conversation",

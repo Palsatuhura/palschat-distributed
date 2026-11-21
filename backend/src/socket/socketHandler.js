@@ -1,3 +1,4 @@
+const logger = require("../utils/logger");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const User = require("../models/User");
@@ -163,7 +164,7 @@ const socketHandler = (io, presenceClient) => {
 
     io.emit("user_offline", { userId, lastSeen });
 
-    console.log(`🔴 User became offline: ${userId}`);
+    logger.debug(`🔴 User became offline: ${userId}`);
   };
 
   const announceOnline = async (userId) => {
@@ -175,7 +176,7 @@ const socketHandler = (io, presenceClient) => {
 
     io.emit("user_online", { userId });
 
-    console.log(`🟢 User became online: ${userId}`);
+    logger.debug(`🟢 User became online: ${userId}`);
   };
 
   /*
@@ -311,11 +312,11 @@ const socketHandler = (io, presenceClient) => {
   });
 
   io.on("connection", async (socket) => {
-    console.log(
+    logger.debug(
       `🔐 Authenticated socket connected: ${socket.id}`
     );
 
-    console.log(
+    logger.debug(
       `👤 User: ${socket.user.name} (${socket.userId})`
     );
 
@@ -341,7 +342,7 @@ const socketHandler = (io, presenceClient) => {
       if (msUntilExpiry <= MAX_TIMER_MS) {
         expiryTimer = setTimeout(
           () => {
-            console.log(
+            logger.debug(
               `⏰ Token expired, closing socket ${socket.id} (user ${socket.userId})`
             );
 
@@ -502,7 +503,7 @@ const socketHandler = (io, presenceClient) => {
 
           socket.join(conversationId);
 
-          console.log(
+          logger.debug(
             `📨 Socket ${socket.id} joined room: ${conversationId}`
           );
 
@@ -535,7 +536,7 @@ const socketHandler = (io, presenceClient) => {
 
         socket.leave(conversationId);
 
-        console.log(
+        logger.debug(
           `📤 Socket ${socket.id} left room: ${conversationId}`
         );
       }
@@ -817,7 +818,7 @@ const socketHandler = (io, presenceClient) => {
 
           respond({ ok: true, message });
 
-          console.log(
+          logger.debug(
             `💬 Message sent in room ${conversationId} by ${senderId}`
           );
         } catch (error) {
@@ -1028,7 +1029,7 @@ const socketHandler = (io, presenceClient) => {
       async () => {
         clearTimeout(expiryTimer);
 
-        console.log(
+        logger.debug(
           `🔴 Socket disconnected: ${socket.id}`
         );
 
@@ -1060,7 +1061,7 @@ const socketHandler = (io, presenceClient) => {
     try {
       socket.join(userRoom);
 
-      console.log(
+      logger.debug(
         `👤 Joined user presence room: ${userRoom}`
       );
 
@@ -1077,7 +1078,7 @@ const socketHandler = (io, presenceClient) => {
       if (becameOnline) {
         await announceOnline(userId);
       } else {
-        console.log(
+        logger.debug(
           `🟢 User opened another socket: ${userId}`
         );
       }
@@ -1090,7 +1091,7 @@ const socketHandler = (io, presenceClient) => {
         onlineUserIds
       );
 
-      console.log(
+      logger.debug(
         `🌐 Online users: ${onlineUserIds.length}`
       );
 

@@ -1,3 +1,4 @@
+const logger = require("./utils/logger");
 /**
  * Backend Entry Point
  * Express + Socket.io + MongoDB + Redis Adapter + Redis Presence
@@ -278,7 +279,7 @@ const startServer = async () => {
       }
     );
 
-    console.log(
+    logger.info(
       "🔄 Connecting to Upstash Redis..."
     );
 
@@ -288,11 +289,11 @@ const startServer = async () => {
       presenceClient.connect(),
     ]);
 
-    console.log(
+    logger.info(
       "✅ Upstash Redis connected"
     );
 
-    console.log(
+    logger.info(
       "✅ Redis presence client connected"
     );
 
@@ -309,7 +310,7 @@ const startServer = async () => {
       )
     );
 
-    console.log(
+    logger.info(
       "🔗 Socket.io Redis adapter enabled"
     );
 
@@ -332,7 +333,7 @@ const startServer = async () => {
       if (shuttingDown) return;
       shuttingDown = true;
 
-      console.log(
+      logger.info(
         `\n🛑 ${signal} received, shutting down...`
       );
 
@@ -366,7 +367,7 @@ const startServer = async () => {
           mongoose.connection.close(),
         ]);
 
-        console.log("✅ Shutdown complete");
+        logger.info("✅ Shutdown complete");
       } catch (error) {
         console.error(
           "Shutdown error:",
@@ -397,19 +398,19 @@ const startServer = async () => {
     httpServer.listen(
       PORT,
       () => {
-        console.log(
+        logger.info(
           `🚀 Server running on http://localhost:${PORT}`
         );
 
-        console.log(
+        logger.info(
           `📡 Socket.io ready on http://localhost:${PORT}`
         );
 
-        console.log(
+        logger.info(
           `🌐 Distributed mode enabled`
         );
 
-        console.log(
+        logger.info(
           `👥 Redis presence enabled`
         );
       }

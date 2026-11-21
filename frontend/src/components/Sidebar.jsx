@@ -156,7 +156,6 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
   );
 
   const handleLogout = async () => {
-    console.log("🚪 Logging out — disconnecting socket...");
 
     // Prevent Socket.IO from reconnecting after logout.
     socket.io.opts.reconnection = false;
@@ -185,7 +184,6 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
     // Clear the authenticated user.
     logout();
 
-    console.log("✅ Logout completed");
   };
 
   return (

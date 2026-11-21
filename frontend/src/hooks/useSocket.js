@@ -71,9 +71,6 @@ const useSocket = () => {
         return;
       }
 
-      console.log(
-        `📨 Rejoining conversation room: ${activeConversation._id}`
-      );
 
       socket.emit(
         "join_conversation",
@@ -110,9 +107,6 @@ const useSocket = () => {
     };
 
     const handleConnect = () => {
-      console.log(
-        `🔐 Secure Socket.IO connection established: ${socket.id}`
-      );
 
       joinActiveConversation();
 
@@ -162,10 +156,6 @@ const useSocket = () => {
     };
 
     const handleOnlineUsers = (userIds) => {
-      console.log(
-        "🌐 Distributed online users:",
-        userIds
-      );
 
       setOnlineUsers(userIds);
     };
@@ -235,17 +225,11 @@ const useSocket = () => {
     };
 
     const handleUserOnline = ({ userId }) => {
-      console.log(
-        `🟢 User online: ${userId}`
-      );
 
       setUserOnline(userId);
     };
 
     const handleUserOffline = ({ userId }) => {
-      console.log(
-        `🔴 User offline: ${userId}`
-      );
 
       setUserOffline(userId);
     };
@@ -292,9 +276,6 @@ const useSocket = () => {
 
         // ...and if the person is looking at that chat right now, it is read.
         // (Temporary diagnostics: the lines starting with 🧾 will be removed.)
-        console.log(
-          `🧾 message from other: chatOpen=${message.conversation === activeConversation?._id}, tab=${document.visibilityState}`
-        );
 
         if (
           message.conversation === activeConversation?._id &&
@@ -363,14 +344,12 @@ const useSocket = () => {
 
     // Another participant's app received / read our messages: update ticks.
     const handleMessagesRead = ({ conversationId, userId }) => {
-      console.log(`🧾 messages_read from ${userId}`);
       useChatStore
         .getState()
         .applyReceipt(conversationId, userId, "readBy");
     };
 
     const handleMessagesDelivered = ({ conversationId, userId }) => {
-      console.log(`🧾 messages_delivered to ${userId}`);
       useChatStore
         .getState()
         .applyReceipt(conversationId, userId, "deliveredTo");
@@ -465,9 +444,6 @@ const useSocket = () => {
     socket.on("messages_delivered", handleMessagesDelivered);
 
     if (!socket.connected) {
-      console.log(
-        "🔌 Connecting authenticated socket..."
-      );
 
       socket.connect();
     } else {

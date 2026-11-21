@@ -1,0 +1,737 @@
+diff --git a/README.md b/README.md
+index 27bc46d..07d2731 100755
+--- a/README.md
++++ b/README.md
+@@ -1,143 +1,81 @@
+-# 💬 ChatApp — Real-time Chat Application
++# PalsChat Distributed
+ 
+-A full-stack real-time chat application built as a portfolio/CV project. Features private and group messaging, live online status, typing indicators, and persistent message history.
++A real-time, secure chat system built to run on several servers at once. People can chat one-to-one or in groups, send pictures and files, and manage their own devices and privacy.
+ 
+-## Tech Stack
+-
+-| Layer | Technology |
+-|-------|-----------|
+-| Frontend | React 18 + Vite |
+-| State Management | Zustand |
+-| Styling | Tailwind CSS |
+-| HTTP Client | Axios |
+-| Real-time | Socket.io-client |
+-| Backend | Node.js + Express.js |
+-| Real-time Server | Socket.io |
+-| Database | MongoDB + Mongoose |
+-| Authentication | JWT + bcrypt |
+-
+----
+-
+-## Quick Start (2 Terminals)
+-
+-### Terminal 1 — Backend (port 5000)
+-```bash
+-cd backend
+-npm install
+-npm run dev
+-```
+-
+-### Terminal 2 — Frontend (port 5173)
+-```bash
+-cd frontend
+-npm install
+-npm run dev
+-```
+-
+-Open **http://localhost:5173** in your browser.
+-
+-> ⚠️ Make sure MongoDB is running locally before starting the backend.
+-> If using MongoDB Atlas, update `MONGO_URI` in `backend/.env`.
+-
+----
++**Live site:** https://palschat.onrender.com  (API: https://palschat-distributed.onrender.com)
+ 
+ ## Features
+ 
+-- 🔐 User registration & login with JWT session persistence
+-- 👤 User list with real-time **online/offline status** indicators
+-- 💬 **1-on-1 private chat** with full history loaded from database
+-- 👥 **Group chat** — create groups with multiple users
+-- ⚡ **Real-time messaging** via Socket.io (no page refresh needed)
+-- ✍️ **Typing indicator** — see when the other person is typing
+-- 🔢 **Unread message badges** per conversation
+-- ✅ **Read receipts** (single/double tick on messages)
+-- 📱 **Responsive UI** — sidebar collapses on mobile screens
+-- 🔍 Search/filter users and conversations
++- Accounts with hashed passwords, per-device login sessions, and "sign out of other devices"
++- One-to-one and group chats, typing indicators, online status, delivered and read ticks
++- Reply to messages, delete for me, delete for everyone (within 48 hours)
++- Pictures and files (images, PDF, Office documents, text) up to 4 MB
++- Block people; pin, mute and archive chats; clear or delete a chat for yourself
++- Delete your account (your messages stay, shown as "Deleted user")
++- Light, dark and system themes, five accent colours, desktop notifications and sounds
++- Default profile pictures chosen from the gender picked at signup
+ 
+----
++## How it is built
+ 
+-## Project Structure
++| Part | Technology |
++|------|------------|
++| Frontend | React, Vite, Tailwind CSS, Zustand |
++| Backend | Node.js, Express, Socket.IO |
++| Database | MongoDB Atlas (Mongoose) |
++| Shared real-time state | Redis (Upstash), Socket.IO Redis adapter |
++| Hosting | Render (API as a web service, frontend as a static site) |
+ 
+-```
+-Realtime-chat-app/
+-├── backend/               ← Node.js + Express + Socket.io + MongoDB
+-│   ├── src/
+-│   │   ├── config/        ← Database connection
+-│   │   ├── controllers/   ← Business logic (auth, users, chats, messages)
+-│   │   ├── middleware/     ← JWT authentication middleware
+-│   │   ├── models/        ← Mongoose schemas (User, Conversation, Message)
+-│   │   ├── routes/        ← Express route definitions
+-│   │   ├── socket/        ← Socket.io event handlers
+-│   │   └── index.js       ← Server entry point
+-│   ├── .env
+-│   ├── package.json
+-│   └── README.md
+-│
+-├── frontend/              ← React + Vite + Tailwind CSS
+-│   ├── src/
+-│   │   ├── components/    ← UI components (Sidebar, ChatWindow, etc.)
+-│   │   ├── hooks/         ← useSocket lifecycle hook
+-│   │   ├── lib/           ← Axios & Socket.io-client setup
+-│   │   ├── pages/         ← Login, Register, Chat pages
+-│   │   ├── store/         ← Zustand state (auth, chat)
+-│   │   └── App.jsx        ← React Router setup
+-│   ├── .env
+-│   ├── package.json
+-│   └── README.md
+-│
+-└── README.md              ← This file
+-```
+-
+----
+-
+-## Environment Variables
++Because the Socket.IO servers share Redis, a message sent to one server reaches people connected to any other. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+ 
+-### Backend (`backend/.env`)
+-```
+-PORT=5000
+-MONGO_URI=mongodb://localhost:27017/chatapp
+-JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+-```
++## Documents
+ 
+-### Frontend (`frontend/.env`)
+-```
+-VITE_API_URL=http://localhost:5000/api
+-VITE_SOCKET_URL=http://localhost:5000
+-```
++- [Architecture](docs/ARCHITECTURE.md): diagram and how a message travels
++- [Security and threat model](docs/SECURITY.md): what is protected, how, and what is not
++- [User guide](docs/USER_GUIDE.md): how to use every feature
+ 
+----
++## Run it on your computer
+ 
+-## API Overview
++You need Node.js 18 or newer, a MongoDB database (a free Atlas cluster works) and, optionally, a Redis URL. Without Redis the backend runs as a single server.
+ 
+-| Method | Endpoint | Auth | Description |
+-|--------|----------|------|-------------|
+-| POST | `/api/auth/register` | ❌ | Register new user |
+-| POST | `/api/auth/login` | ❌ | Login and get JWT |
+-| GET | `/api/users` | ✅ | Get all users |
+-| GET | `/api/conversations` | ✅ | Get user's conversations |
+-| POST | `/api/conversations` | ✅ | Create/get conversation |
+-| GET | `/api/conversations/:id/messages` | ✅ | Get message history |
++```bash
++# 1. Backend
++cd backend
++cp .env.example .env        # then fill in MONGO_URI and JWT_SECRET
++npm install
++npm run dev                 # http://localhost:5000
+ 
+----
++# 2. Frontend (second terminal)
++cd frontend
++npm install
++npm run dev                 # http://localhost:5173
++```
+ 
+-## Socket.io Events
++The frontend needs `VITE_API_URL` and `VITE_SOCKET_URL` (see `frontend/README.md`).
+ 
+-| Direction | Event | Description |
+-|-----------|-------|-------------|
+-| Client → Server | `user_connected` | Announce presence |
+-| Client → Server | `join_conversation` | Join chat room |
+-| Client → Server | `send_message` | Send new message |
+-| Client → Server | `typing` / `stop_typing` | Typing status |
+-| Server → Client | `receive_message` | Incoming message |
+-| Server → Client | `user_online` / `user_offline` | Presence updates |
+-| Server → Client | `online_users` | Initial online list |
++### Backend settings (environment variables)
+ 
+----
++| Name | Purpose |
++|------|---------|
++| `MONGO_URI` | MongoDB connection string (required) |
++| `JWT_SECRET` | Long random secret that signs login tokens (required) |
++| `CORS_ORIGINS` | Comma-separated list of frontend addresses allowed to call the API |
++| `REDIS_URL` | Enables several servers working together |
++| `JWT_EXPIRES_IN` | Lifetime of one token (default 24 hours; renewed quietly while in use) |
++| `SESSION_MAX_DAYS` | Longest a login may last (default 30) |
++| `TRUST_PROXY` | Number of proxies in front of the server (Render: 1) |
++| `LOG_LEVEL` | Set to `debug` to print routine events; errors always print |
++| `RATE_LIMIT_*` | Optional overrides for the rate limits |
+ 
+-## Screenshots
++## Tests
+ 
+-> Register, then open two browser windows with different accounts to test real-time messaging!
++```bash
++cd backend  && npm test     # API, validation, sockets, rate limits, privacy rules
++cd frontend && npm test     # helpers and state logic
++```
+ 
+----
++## Known limits
+ 
+-*Built with ❤️ as a full-stack portfolio project.*
++- Messages are encrypted in transit (HTTPS and secure WebSockets) but **not end-to-end encrypted**; the server can read them.
++- Files are stored in MongoDB, so the free 512 MB limit applies. A production system should use object storage such as S3 or R2.
++- The free Render plan sleeps after inactivity, so the first request can take about a minute.
++- There is no password reset by email yet.
+diff --git a/backend/src/config/db.js b/backend/src/config/db.js
+index 2283533..4b924a6 100755
+--- a/backend/src/config/db.js
++++ b/backend/src/config/db.js
+@@ -1,3 +1,4 @@
++const logger = require("../utils/logger");
+ const mongoose = require("mongoose");
+ 
+ /**
+@@ -8,7 +9,7 @@ const mongoose = require("mongoose");
+ const connectDB = async () => {
+   try {
+     const conn = await mongoose.connect(process.env.MONGO_URI);
+-    console.log(`✅ MongoDB connected: ${conn.connection.host}`);
++    logger.info(`✅ MongoDB connected: ${conn.connection.host}`);
+   } catch (error) {
+     console.error(`❌ MongoDB connection error: ${error.message}`);
+     process.exit(1); // Exit process with failure
+diff --git a/backend/src/index.js b/backend/src/index.js
+index 89e8cec..ee9f498 100755
+--- a/backend/src/index.js
++++ b/backend/src/index.js
+@@ -1,3 +1,4 @@
++const logger = require("./utils/logger");
+ /**
+  * Backend Entry Point
+  * Express + Socket.io + MongoDB + Redis Adapter + Redis Presence
+@@ -278,7 +279,7 @@ const startServer = async () => {
+       }
+     );
+ 
+-    console.log(
++    logger.info(
+       "🔄 Connecting to Upstash Redis..."
+     );
+ 
+@@ -288,11 +289,11 @@ const startServer = async () => {
+       presenceClient.connect(),
+     ]);
+ 
+-    console.log(
++    logger.info(
+       "✅ Upstash Redis connected"
+     );
+ 
+-    console.log(
++    logger.info(
+       "✅ Redis presence client connected"
+     );
+ 
+@@ -309,7 +310,7 @@ const startServer = async () => {
+       )
+     );
+ 
+-    console.log(
++    logger.info(
+       "🔗 Socket.io Redis adapter enabled"
+     );
+ 
+@@ -332,7 +333,7 @@ const startServer = async () => {
+       if (shuttingDown) return;
+       shuttingDown = true;
+ 
+-      console.log(
++      logger.info(
+         `\n🛑 ${signal} received, shutting down...`
+       );
+ 
+@@ -366,7 +367,7 @@ const startServer = async () => {
+           mongoose.connection.close(),
+         ]);
+ 
+-        console.log("✅ Shutdown complete");
++        logger.info("✅ Shutdown complete");
+       } catch (error) {
+         console.error(
+           "Shutdown error:",
+@@ -397,19 +398,19 @@ const startServer = async () => {
+     httpServer.listen(
+       PORT,
+       () => {
+-        console.log(
++        logger.info(
+           `🚀 Server running on http://localhost:${PORT}`
+         );
+ 
+-        console.log(
++        logger.info(
+           `📡 Socket.io ready on http://localhost:${PORT}`
+         );
+ 
+-        console.log(
++        logger.info(
+           `🌐 Distributed mode enabled`
+         );
+ 
+-        console.log(
++        logger.info(
+           `👥 Redis presence enabled`
+         );
+       }
+diff --git a/backend/src/socket/socketHandler.js b/backend/src/socket/socketHandler.js
+index 61cb1a4..3496c0a 100755
+--- a/backend/src/socket/socketHandler.js
++++ b/backend/src/socket/socketHandler.js
+@@ -1,3 +1,4 @@
++const logger = require("../utils/logger");
+ const Message = require("../models/Message");
+ const Conversation = require("../models/Conversation");
+ const User = require("../models/User");
+@@ -163,7 +164,7 @@ const socketHandler = (io, presenceClient) => {
+ 
+     io.emit("user_offline", { userId, lastSeen });
+ 
+-    console.log(`🔴 User became offline: ${userId}`);
++    logger.debug(`🔴 User became offline: ${userId}`);
+   };
+ 
+   const announceOnline = async (userId) => {
+@@ -175,7 +176,7 @@ const socketHandler = (io, presenceClient) => {
+ 
+     io.emit("user_online", { userId });
+ 
+-    console.log(`🟢 User became online: ${userId}`);
++    logger.debug(`🟢 User became online: ${userId}`);
+   };
+ 
+   /*
+@@ -311,11 +312,11 @@ const socketHandler = (io, presenceClient) => {
+   });
+ 
+   io.on("connection", async (socket) => {
+-    console.log(
++    logger.debug(
+       `🔐 Authenticated socket connected: ${socket.id}`
+     );
+ 
+-    console.log(
++    logger.debug(
+       `👤 User: ${socket.user.name} (${socket.userId})`
+     );
+ 
+@@ -341,7 +342,7 @@ const socketHandler = (io, presenceClient) => {
+       if (msUntilExpiry <= MAX_TIMER_MS) {
+         expiryTimer = setTimeout(
+           () => {
+-            console.log(
++            logger.debug(
+               `⏰ Token expired, closing socket ${socket.id} (user ${socket.userId})`
+             );
+ 
+@@ -502,7 +503,7 @@ const socketHandler = (io, presenceClient) => {
+ 
+           socket.join(conversationId);
+ 
+-          console.log(
++          logger.debug(
+             `📨 Socket ${socket.id} joined room: ${conversationId}`
+           );
+ 
+@@ -535,7 +536,7 @@ const socketHandler = (io, presenceClient) => {
+ 
+         socket.leave(conversationId);
+ 
+-        console.log(
++        logger.debug(
+           `📤 Socket ${socket.id} left room: ${conversationId}`
+         );
+       }
+@@ -817,7 +818,7 @@ const socketHandler = (io, presenceClient) => {
+ 
+           respond({ ok: true, message });
+ 
+-          console.log(
++          logger.debug(
+             `💬 Message sent in room ${conversationId} by ${senderId}`
+           );
+         } catch (error) {
+@@ -1028,7 +1029,7 @@ const socketHandler = (io, presenceClient) => {
+       async () => {
+         clearTimeout(expiryTimer);
+ 
+-        console.log(
++        logger.debug(
+           `🔴 Socket disconnected: ${socket.id}`
+         );
+ 
+@@ -1060,7 +1061,7 @@ const socketHandler = (io, presenceClient) => {
+     try {
+       socket.join(userRoom);
+ 
+-      console.log(
++      logger.debug(
+         `👤 Joined user presence room: ${userRoom}`
+       );
+ 
+@@ -1077,7 +1078,7 @@ const socketHandler = (io, presenceClient) => {
+       if (becameOnline) {
+         await announceOnline(userId);
+       } else {
+-        console.log(
++        logger.debug(
+           `🟢 User opened another socket: ${userId}`
+         );
+       }
+@@ -1090,7 +1091,7 @@ const socketHandler = (io, presenceClient) => {
+         onlineUserIds
+       );
+ 
+-      console.log(
++      logger.debug(
+         `🌐 Online users: ${onlineUserIds.length}`
+       );
+ 
+diff --git a/backend/src/utils/logger.js b/backend/src/utils/logger.js
+new file mode 100644
+index 0000000..6e1f478
+--- /dev/null
++++ b/backend/src/utils/logger.js
+@@ -0,0 +1,13 @@
++/**
++ * Tiny logger. Routine events (who connected, which message was sent) are
++ * only printed when LOG_LEVEL=debug, so production logs stay short and do not
++ * fill up with user ids. Warnings and errors are always printed.
++ */
++const debugOn = () => process.env.LOG_LEVEL === "debug";
++
++module.exports = {
++  debug: (...args) => debugOn() && console.log(...args),
++  info: (...args) => console.log(...args),
++  warn: (...args) => console.warn(...args),
++  error: (...args) => console.error(...args),
++};
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+new file mode 100644
+index 0000000..e8f78bb
+--- /dev/null
++++ b/docs/ARCHITECTURE.md
+@@ -0,0 +1,70 @@
++# Architecture
++
++## Overview
++
++```mermaid
++flowchart LR
++  subgraph Browsers
++    A[Browser A]
++    B[Browser B]
++  end
++  FE[Static frontend<br/>React + Vite]
++  subgraph Backend instances
++    S1[Server 1<br/>Express + Socket.IO]
++    S2[Server 2<br/>Express + Socket.IO]
++  end
++  R[(Redis<br/>pub/sub, presence,<br/>rate limits)]
++  M[(MongoDB Atlas<br/>users, chats, messages,<br/>sessions, files)]
++
++  A -- loads --> FE
++  B -- loads --> FE
++  A <-- HTTPS + WSS --> S1
++  B <-- HTTPS + WSS --> S2
++  S1 <--> R
++  S2 <--> R
++  S1 --> M
++  S2 --> M
++```
++
++Any server can hold any person's connection. When Server 1 emits to a room, the Redis adapter relays it to Server 2, so Browser B still receives it.
++
++## How a message travels
++
++```mermaid
++sequenceDiagram
++  participant A as Sender
++  participant S as Server (any)
++  participant DB as MongoDB
++  participant R as Redis
++  participant B as Recipient
++  A->>S: send_message (JWT checked on connect)
++  S->>S: validate text, membership, block list, rate limit
++  S->>DB: save message
++  S->>R: emit to room user:<id> of each member
++  R-->>B: delivered through whichever server B is on
++  B->>S: mark_delivered / mark_read
++  S->>R: tell the sender (ticks)
++```
++
++## Data
++
++| Collection | Holds |
++|------------|-------|
++| User | name, email, password hash, gender, picture, about, blocked list, deletedAt |
++| Session | one per logged-in device (so devices can be listed and ended) |
++| Conversation | participants, group details, and each person's own state (cleared, hidden, pinned, muted, archived) |
++| Message | text, sender, reply, attachment, deleted markers, delivered and read lists |
++| Attachment | file bytes with a one-hour expiry until it is attached to a message |
++
++## Real-time rooms
++
++- `user:<id>`: everything addressed to one person on all their devices
++- `session:<id>`: one login, so it can be ended instantly
++- `conversation:<id>`: typing indicators for the open chat
++
++## Design choices
++
++- **User id always comes from the token**, never from the request body.
++- **Membership is checked on every read and write** of a conversation, message or file.
++- **Per-person state** (clear chat, pin, mute) is stored per person, so one person's actions never change another's view.
++- **Redis is shared** for presence and rate limits so the limits hold across servers.
+diff --git a/docs/SECURITY.md b/docs/SECURITY.md
+new file mode 100644
+index 0000000..bae4cc3
+--- /dev/null
++++ b/docs/SECURITY.md
+@@ -0,0 +1,45 @@
++# Security and threat model
++
++## What is protected
++
++Accounts and passwords, private messages and files, the list of who talks to whom, and the availability of the service.
++
++## Who might attack
++
++| Attacker | Goal |
++|----------|------|
++| Outsider with no account | Guess passwords, flood the service, read others' data |
++| Registered user | Read chats they are not in, impersonate others, abuse uploads |
++| Someone with a stolen token or device | Keep using another person's account |
++| Network eavesdropper | Read traffic |
++
++## Threats and controls
++
++| Threat | Control |
++|--------|---------|
++| Password guessing | bcrypt hashing; login limits per IP and per account; a dummy hash comparison so "unknown email" and "wrong password" take the same time |
++| Weak or oversized input | Server-side validation of every field and length; strings only |
++| NoSQL injection | Validators reject objects such as `{ "$ne": "" }`; ids are checked as ObjectIds |
++| Reading other people's chats | Membership check on every conversation, message and file request; ids from the token only |
++| Stolen token | Tokens are short-lived (24 h) and tied to a session; any device can be ended and the socket closes at once |
++| Account takeover after password change | Changing the password ends other sessions |
++| Hostile uploads | File type decided by reading the file's first bytes, not its name or claimed type; 4 MB limit; served with `nosniff` and a sandbox CSP; upload rate limit |
++| Flooding | Per-IP API limits; per-socket event limits and a tighter limit on `send_message` |
++| Cross-site requests | Strict CORS list (`CORS_ORIGINS`); token sent in a header, not a cookie |
++| Browser attacks on the API | `helmet` security headers |
++| Eavesdropping | HTTPS and secure WebSockets |
++| Harassment | Block (both directions), mute, leave group |
++| Leftover data | Deleting an account erases name, email, picture and about, ends all sessions and removes the person from groups; delete for everyone erases text and file |
++| Privacy in logs | Routine events are only logged with `LOG_LEVEL=debug` |
++
++## Not protected (honest limits)
++
++- **No end-to-end encryption.** The server and the database host can read messages. Adding it needs key management and changes search, multi-device and group behaviour.
++- **Files are stored in the database**, not scanned for viruses.
++- **No password reset or email verification yet**, so a forgotten password cannot be recovered and email ownership is not proved.
++- **Tokens live in the browser's storage**, so a script injected into the page could read one. The React front end avoids raw HTML, and files are served in a sandbox, but this is the usual trade-off of token-based login.
++- **A blocked person is not told** they are blocked until they try to send (intentional).
++
++## Checks included
++
++`npm test` in `backend/` runs tests for validation, authorization, sessions, rate limits, privacy rules, uploads and message deletion. Scripts such as `npm run check:authz` and `npm run check:hardening` run against a live server.
+diff --git a/docs/USER_GUIDE.md b/docs/USER_GUIDE.md
+new file mode 100644
+index 0000000..77a0cc9
+--- /dev/null
++++ b/docs/USER_GUIDE.md
+@@ -0,0 +1,31 @@
++# PalsChat user guide
++
++## Getting started
++1. Open https://palschat.onrender.com. The first load may take up to a minute.
++2. Choose **Create account**, enter your name, pick **Male**, **Female** or **Prefer not to say**, then your email and a password of at least 8 characters.
++3. Your gender only decides your default picture, and it can be set once.
++
++## Chatting
++- **Chats** tab: your conversations. **People** tab: everyone you can message. Tap a person to start.
++- Press **Enter** to send, **Shift+Enter** for a new line.
++- Ticks: one is sent, two are delivered, blue is read.
++- **Reply, delete:** open the small arrow on a message. *Delete for me* hides it for you; *Delete for everyone* works for your own messages within 48 hours.
++- **Pictures and files:** use the paperclip (up to 4 MB). Allowed: pictures, PDF, Word, Excel, PowerPoint, text and CSV.
++- **Jump to latest:** when you scroll up, a button appears to take you to the newest message.
++
++## Groups
++Use the group button in the chat list to name a group and add people. Open the group's menu to see members, rename it, add or remove people (if you are an admin) or leave.
++
++## Managing a chat
++Open the chat's menu to **pin** (up to 3), **mute**, **archive**, **block**, **clear** (empties it for you only) or **delete** it (for you only). Archived chats are under **Archived** in the chat list.
++
++## Settings (gear icon)
++- **Appearance:** Light, Dark or System, and an accent colour.
++- **Notifications:** message sounds and desktop pop-ups. Muted chats never alert. If the browser blocks pop-ups, allow them in the site settings.
++- **Account:** edit your picture, name and about line; change your password; see and end your signed-in devices; sign out.
++
++## Privacy and safety
++- **Block** someone to stop messages in both directions.
++- **Password and devices** shows every device signed in. End any you do not recognise.
++- **Delete my account** (in Password and devices) erases your details. Your old messages stay in other people's chats, shown as "Deleted user".
++- Messages are encrypted while travelling to the server, but the system is not end-to-end encrypted.
+diff --git a/frontend/src/components/ChatWindow.jsx b/frontend/src/components/ChatWindow.jsx
+index f7efa5a..3430a43 100755
+--- a/frontend/src/components/ChatWindow.jsx
++++ b/frontend/src/components/ChatWindow.jsx
+@@ -95,9 +95,6 @@ const ChatWindow = ({ onMenuClick }) => {
+     const joinConversation = () => {
+       if (!socket.connected) return;
+ 
+-      console.log(
+-        `📨 Joining conversation room: ${conversationId}`
+-      );
+ 
+       socket.emit(
+         "join_conversation",
+@@ -121,9 +118,6 @@ const ChatWindow = ({ onMenuClick }) => {
+       );
+ 
+       if (socket.connected) {
+-        console.log(
+-          `📤 Leaving conversation room: ${conversationId}`
+-        );
+ 
+         socket.emit(
+           "leave_conversation",
+diff --git a/frontend/src/components/Sidebar.jsx b/frontend/src/components/Sidebar.jsx
+index 18ef1c7..bb75f27 100755
+--- a/frontend/src/components/Sidebar.jsx
++++ b/frontend/src/components/Sidebar.jsx
+@@ -156,7 +156,6 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
+   );
+ 
+   const handleLogout = async () => {
+-    console.log("🚪 Logging out — disconnecting socket...");
+ 
+     // Prevent Socket.IO from reconnecting after logout.
+     socket.io.opts.reconnection = false;
+@@ -185,7 +184,6 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
+     // Clear the authenticated user.
+     logout();
+ 
+-    console.log("✅ Logout completed");
+   };
+ 
+   return (
+diff --git a/frontend/src/hooks/useSocket.js b/frontend/src/hooks/useSocket.js
+index c7418a4..0eccc21 100755
+--- a/frontend/src/hooks/useSocket.js
++++ b/frontend/src/hooks/useSocket.js
+@@ -71,9 +71,6 @@ const useSocket = () => {
+         return;
+       }
+ 
+-      console.log(
+-        `📨 Rejoining conversation room: ${activeConversation._id}`
+-      );
+ 
+       socket.emit(
+         "join_conversation",
+@@ -110,9 +107,6 @@ const useSocket = () => {
+     };
+ 
+     const handleConnect = () => {
+-      console.log(
+-        `🔐 Secure Socket.IO connection established: ${socket.id}`
+-      );
+ 
+       joinActiveConversation();
+ 
+@@ -162,10 +156,6 @@ const useSocket = () => {
+     };
+ 
+     const handleOnlineUsers = (userIds) => {
+-      console.log(
+-        "🌐 Distributed online users:",
+-        userIds
+-      );
+ 
+       setOnlineUsers(userIds);
+     };
+@@ -235,17 +225,11 @@ const useSocket = () => {
+     };
+ 
+     const handleUserOnline = ({ userId }) => {
+-      console.log(
+-        `🟢 User online: ${userId}`
+-      );
+ 
+       setUserOnline(userId);
+     };
+ 
+     const handleUserOffline = ({ userId }) => {
+-      console.log(
+-        `🔴 User offline: ${userId}`
+-      );
+ 
+       setUserOffline(userId);
+     };
+@@ -292,9 +276,6 @@ const useSocket = () => {
+ 
+         // ...and if the person is looking at that chat right now, it is read.
+         // (Temporary diagnostics: the lines starting with 🧾 will be removed.)
+-        console.log(
+-          `🧾 message from other: chatOpen=${message.conversation === activeConversation?._id}, tab=${document.visibilityState}`
+-        );
+ 
+         if (
+           message.conversation === activeConversation?._id &&
+@@ -363,14 +344,12 @@ const useSocket = () => {
+ 
+     // Another participant's app received / read our messages: update ticks.
+     const handleMessagesRead = ({ conversationId, userId }) => {
+-      console.log(`🧾 messages_read from ${userId}`);
+       useChatStore
+         .getState()
+         .applyReceipt(conversationId, userId, "readBy");
+     };
+ 
+     const handleMessagesDelivered = ({ conversationId, userId }) => {
+-      console.log(`🧾 messages_delivered to ${userId}`);
+       useChatStore
+         .getState()
+         .applyReceipt(conversationId, userId, "deliveredTo");
+@@ -465,9 +444,6 @@ const useSocket = () => {
+     socket.on("messages_delivered", handleMessagesDelivered);
+ 
+     if (!socket.connected) {
+-      console.log(
+-        "🔌 Connecting authenticated socket..."
+-      );
+ 
+       socket.connect();
+     } else {
