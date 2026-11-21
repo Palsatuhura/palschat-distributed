@@ -6,7 +6,6 @@ A real-time, secure chat system built to run on several servers at once. People 
 
 ## Features
 
-- Forgot password by email (single-use link, 30 minutes)
 - Accounts with hashed passwords, per-device login sessions, and "sign out of other devices"
 - One-to-one and group chats, typing indicators, online status, delivered and read ticks
 - Reply to messages, delete for me, delete for everyone (within 48 hours)
@@ -64,8 +63,6 @@ The frontend needs `VITE_API_URL` and `VITE_SOCKET_URL` (see `frontend/README.md
 | `JWT_EXPIRES_IN` | Lifetime of one token (default 24 hours; renewed quietly while in use) |
 | `SESSION_MAX_DAYS` | Longest a login may last (default 30) |
 | `TRUST_PROXY` | Number of proxies in front of the server (Render: 1) |
-| `APP_URL` | Address of the website, placed inside password-reset links |
-| `BREVO_API_KEY`, `MAIL_FROM`, `MAIL_FROM_NAME` | Email sending for password reset (optional) |
 | `LOG_LEVEL` | Set to `debug` to print routine events; errors always print |
 | `RATE_LIMIT_*` | Optional overrides for the rate limits |
 
@@ -92,4 +89,4 @@ It checks that a retried message is saved only once, then has 20 people exchange
 - Messages are encrypted in transit (HTTPS and secure WebSockets) but **not end-to-end encrypted**; the server can read them.
 - Files are stored in MongoDB, so the free 512 MB limit applies. A production system should use object storage such as S3 or R2.
 - The free Render plan sleeps after inactivity, so the first request can take about a minute.
-- Password reset by email needs a Brevo account (free plan) and a verified sender address; without it the link sends nothing.
+- There is no password reset by email yet.

@@ -285,34 +285,6 @@ const registerLimiter = createRateLimiter({
   message: "Too many accounts created from this network. Please try again later.",
 });
 
-// Forgot password: every request counts (it sends an email). Per network and
-// per email address, so nobody can fill someone's inbox.
-const forgotIpLimiter = createRateLimiter({
-  name: "forgot-ip",
-  windowMs: 60 * MINUTE,
-  max: intFromEnv("RATE_LIMIT_FORGOT_IP_MAX", 10),
-  message: "Too many reset requests. Please try again later.",
-});
-const forgotAccountLimiter = createRateLimiter({
-  name: "forgot-account",
-  windowMs: 60 * MINUTE,
-  max: 3,
-  message: "Too many reset requests for this email. Please try again later.",
-  keyFn: (req) => {
-    const email = req.body && typeof req.body.email === "string" ? req.body.email : "";
-    return hashForKey(email.trim().toLowerCase());
-  },
-});
-
-// Wrong or expired reset links, per network.
-const resetLimiter = createRateLimiter({
-  name: "reset",
-  windowMs: 15 * MINUTE,
-  max: 10,
-  skipSuccessful: true,
-  message: "Too many attempts. Please try again in a few minutes.",
-});
-
 // Uploads of pictures and files, per person.
 const uploadLimiter = createRateLimiter({
   name: "upload",
@@ -340,9 +312,6 @@ module.exports = {
   loginIpLimiter,
   loginAccountLimiter,
   registerLimiter,
-  forgotIpLimiter,
-  forgotAccountLimiter,
-  resetLimiter,
   passwordChangeLimiter,
   uploadLimiter,
   apiLimiter,

@@ -5,9 +5,6 @@
 2. Choose **Create account**, enter your name, pick **Male**, **Female** or **Prefer not to say**, then your email and a password of at least 8 characters.
 3. Your gender only decides your default picture, and it can be set once.
 
-## Forgot your password?
-On the sign-in page choose **Forgot password?**, enter your email and open the link we send you (check spam). It works for 30 minutes and only once. After you choose a new password, every device is signed out.
-
 ## Chatting
 - **Chats** tab: your conversations. **People** tab: everyone you can message. Tap a person to start.
 - Press **Enter** to send, **Shift+Enter** for a new line.
