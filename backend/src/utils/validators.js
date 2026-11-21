@@ -196,6 +196,13 @@ const validateGender = (value) => {
 };
 
 /**
+ * Gender is set once: allowed when nothing was chosen yet, or when the new
+ * value is the same as the current one (no change).
+ */
+const canSetGender = (current, next) =>
+  current === next || !current || current === "unspecified";
+
+/**
  * Validate a group name. Returns { groupName } (trimmed) or { error }.
  */
 const validateGroupName = (value) => {
@@ -235,6 +242,7 @@ module.exports = {
   validateAvatar,
   validateAbout,
   validateGender,
+  canSetGender,
   dmKeyFor,
   isValidObjectId,
   normalizeParticipantIds,

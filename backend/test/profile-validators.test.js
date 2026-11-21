@@ -58,3 +58,12 @@ test("validateGender accepts the three choices and nothing else", () => {
     assert.ok(validateGender(bad).error, `should reject ${JSON.stringify(bad)}`);
   }
 });
+
+test("canSetGender: only while unspecified, or when nothing changes", () => {
+  const { canSetGender } = require("../src/utils/validators");
+  assert.equal(canSetGender("unspecified", "male"), true);
+  assert.equal(canSetGender(undefined, "female"), true);
+  assert.equal(canSetGender("male", "male"), true);
+  assert.equal(canSetGender("male", "female"), false);
+  assert.equal(canSetGender("female", "unspecified"), false);
+});

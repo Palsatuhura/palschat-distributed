@@ -1,6 +1,6 @@
 const User = require("../models/User");
 const { PUBLIC_USER_FIELDS } = require("../utils/constants");
-const { validateAvatar, validateAbout, validateName, validateGender } = require("../utils/validators");
+const { validateAvatar, validateAbout, validateName, validateGender, canSetGender } = require("../utils/validators");
 
 /**
  * GET /api/users
@@ -49,7 +49,14 @@ const updateMe = async (req, res) => {
     if (body.gender !== undefined) {
       const { gender, error } = validateGender(body.gender);
       if (error) return res.status(400).json({ message: error });
-      updates.gender = gender;
+      // Gender is chosen once. It can only be filled in while it is still
+      // "unspecified" (older accounts, or "prefer not to say" at signup).
+      const current = await User.findById(req.user._id).select("gender");
+      if (!current) return res.status(404).json({ message: "User not found" });
+      if (!canSetGender(current.gender, gender)) {
+        return res.status(403).json({ message: "Gender can only be set once" });
+      }
+      if (gender !== current.gender) updates.gender = gender;
     }
 
     if (body.about !== undefined) {

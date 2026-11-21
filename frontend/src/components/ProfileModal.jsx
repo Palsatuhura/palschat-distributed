@@ -21,6 +21,8 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
   const [avatar, setAvatar] = useState(user?.avatar || "");
   const [name, setName] = useState(user?.name || "");
   const [gender, setGender] = useState(genderOf(user));
+  // Gender is chosen once; after that it is shown but cannot be changed.
+  const genderLocked = genderOf(user) !== "unspecified";
   const [about, setAbout] = useState(user?.about || "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,7 +47,12 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
     }
     setBusy(true);
     try {
-      const { data } = await api.patch("/users/me", { name, avatar, gender, about });
+      const { data } = await api.patch("/users/me", {
+        name,
+        avatar,
+        about,
+        ...(genderLocked ? {} : { gender }),
+      });
       updateUser({ name: data.name, avatar: data.avatar, gender: data.gender, about: data.about });
       onClose();
     } catch (err) {
@@ -111,7 +118,17 @@ const ProfileModal = ({ onClose, onOpenSecurity }) => {
         <p className="text-xs text-ink-4 mt-1">Email: {user?.email} (cannot be changed here)</p>
 
         <span className="block text-sm font-medium text-ink-2 mt-3 mb-1">Gender</span>
-        <GenderPicker value={gender} onChange={setGender} name="profile-gender" />
+        {genderLocked ? (
+          <p className="text-sm text-ink border border-line rounded-lg px-3 py-2 bg-surface-2 capitalize">
+            {gender}
+            <span className="text-xs text-ink-4 normal-case"> · set once, cannot be changed</span>
+          </p>
+        ) : (
+          <>
+            <GenderPicker value={gender} onChange={setGender} name="profile-gender" />
+            <p className="text-xs text-ink-4 mt-1">You can choose this once. It cannot be changed later.</p>
+          </>
+        )}
 
         <label className="block text-sm font-medium text-ink-2 mt-3 mb-1" htmlFor="about">
           About
