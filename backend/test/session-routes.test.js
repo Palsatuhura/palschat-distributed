@@ -257,10 +257,36 @@ test("logout ends this session only; logout-all ends every one of mine", async (
   await login(ALICE);
   const b1 = await login(BOB);
 
-  await run(ctl.logout, { user: users[ALICE], session: a1.session });
+  await run(ctl.logout, { headers: { authorization: `Bearer ${a1.token}` } });
   assert.equal(sessions.filter((s) => s.user === ALICE).length, 1);
 
   await run(ctl.logoutAll, { user: users[ALICE], session: a1.session });
+  assert.equal(sessions.filter((s) => s.user === ALICE).length, 0);
+  assert.equal(sessions.filter((s) => s.user === BOB).length, 1);
+  assert.ok(b1);
+});
+
+test("logout still removes the session when the token has just expired, and refuses forged tokens", async () => {
+  await reset();
+  const a1 = await login(ALICE);
+  const b1 = await login(BOB);
+  const jwt = require("jsonwebtoken");
+
+  // forged token (wrong secret) changes nothing
+  const forged = jwt.sign({ id: ALICE, sid: String(a1.session._id) }, "some-other-secret-some-other-secret");
+  assert.equal((await run(ctl.logout, { headers: { authorization: `Bearer ${forged}` } })).c, 401);
+  assert.equal(sessions.filter((s) => s.user === ALICE).length, 1);
+
+  // no token at all
+  assert.equal((await run(ctl.logout, {})).c, 401);
+
+  // properly signed but already expired token: the session is still removed
+  const expired = jwt.sign(
+    { id: ALICE, sid: String(a1.session._id), exp: Math.floor(Date.now() / 1000) - 60 },
+    process.env.JWT_SECRET,
+    { algorithm: "HS256" }
+  );
+  assert.equal((await run(ctl.logout, { headers: { authorization: `Bearer ${expired}` } })).c, 200);
   assert.equal(sessions.filter((s) => s.user === ALICE).length, 0);
   assert.equal(sessions.filter((s) => s.user === BOB).length, 1);
   assert.ok(b1);

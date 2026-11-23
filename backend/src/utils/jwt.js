@@ -39,7 +39,7 @@ const signToken = (userId, sessionId, seconds) =>
  * Verify a token and return its payload. Throws JsonWebTokenError or
  * TokenExpiredError on failure, exactly like jwt.verify.
  */
-const verifyToken = (token) =>
-  jwt.verify(token, getSecret(), { algorithms: [ALGORITHM] });
+const verifyToken = (token, options = {}) =>
+  jwt.verify(token, getSecret(), { ...options, algorithms: [ALGORITHM] });
 
 module.exports = { signToken, verifyToken, ALGORITHM };

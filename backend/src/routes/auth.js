@@ -36,7 +36,8 @@ router.post("/login", loginIpLimiter, loginAccountLimiter, login);
 router.post("/refresh", protect, refresh);
 router.get("/sessions", protect, listSessions);
 router.delete("/sessions/:id", protect, revokeSession);
-router.post("/logout", protect, logout);
+// No `protect` here on purpose: an expired token can still sign out.
+router.post("/logout", logout);
 router.post("/logout-all", protect, logoutAll);
 router.post("/change-password", protect, passwordChangeLimiter, changePassword);
 

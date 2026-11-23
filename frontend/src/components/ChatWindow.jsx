@@ -602,7 +602,7 @@ const ChatWindow = ({ onMenuClick }) => {
   return (
     <div className="flex-1 flex flex-col bg-surface-2 min-w-0">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-surface/90 backdrop-blur border-b border-line">
+      <div className="relative z-30 flex items-center gap-3 px-4 py-3 bg-surface/90 backdrop-blur border-b border-line">
         {/* Mobile back button: returns to the chat list */}
         <button
           onClick={onMenuClick}
@@ -662,7 +662,7 @@ const ChatWindow = ({ onMenuClick }) => {
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div
                 role="menu"
-                className="absolute right-0 mt-1 w-44 bg-surface border border-line rounded-lg shadow-lg z-20 py-1"
+                className="absolute right-0 top-full mt-1 w-48 max-h-[70vh] overflow-y-auto bg-surface border border-line rounded-lg shadow-xl z-20 py-1"
               >
                 <button
                   role="menuitem"

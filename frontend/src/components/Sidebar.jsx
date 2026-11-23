@@ -170,10 +170,15 @@ const Sidebar = ({ onConversationSelect, isMobileOpen, onMobileClose }) => {
 
     // End this login on the server too, so its token stops working
     // everywhere. If the server cannot be reached we still sign out here.
-    try {
-      await api.post("/auth/logout", null, { timeout: 3000, skipAuthRedirect: true });
-    } catch {
-      /* signed out locally anyway */
+    // Two tries, because the free server can be slow to answer the first one.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await api.post("/auth/logout", null, { timeout: 5000, skipAuthRedirect: true });
+        break;
+      } catch (err) {
+        // A real answer from the server (even an error) will not change on a retry.
+        if (err.response) break;
+      }
     }
 
     // Forget the previous user's conversations and messages, so the next

@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Session = require("../models/Session");
-const { signToken } = require("../utils/jwt");
+const { signToken, verifyToken } = require("../utils/jwt");
 const { resolveTokenSeconds } = require("../config/env");
 const { tokenSecondsFor } = require("../utils/sessions");
 const { endSessionsLive } = require("../utils/sessionService");
@@ -94,11 +94,29 @@ const revokeSession = async (req, res) => {
   }
 };
 
-/** POST /api/auth/logout — end the current session. */
+/**
+ * POST /api/auth/logout — end the current session.
+ *
+ * Deliberately NOT behind `protect`: someone whose token has just expired
+ * must still be able to sign out and have the session removed from the list.
+ * The token's signature is still fully checked; only its expiry is ignored,
+ * and the session is deleted only if it belongs to the user named in it.
+ */
 const logout = async (req, res) => {
   try {
-    await Session.deleteOne({ _id: req.session._id, user: req.user._id });
-    endSessionsLive(io(req), [req.session._id]);
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.split(" ")[1] : "";
+    let decoded;
+    try {
+      decoded = verifyToken(token, { ignoreExpiration: true });
+    } catch {
+      return res.status(401).json({ code: "TOKEN_INVALID", message: "Invalid token" });
+    }
+
+    if (isValidObjectId(decoded.sid) && isValidObjectId(decoded.id)) {
+      await Session.deleteOne({ _id: decoded.sid, user: decoded.id });
+      endSessionsLive(io(req), [decoded.sid]);
+    }
     res.status(200).json({ message: "Signed out" });
   } catch (error) {
     console.error("Logout error:", error);
